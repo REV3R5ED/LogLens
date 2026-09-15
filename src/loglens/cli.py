@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from .analysis import filter_events, summarize
+from .detection import detect_anomalies
 from .parsers import parse_line
 
 
@@ -27,7 +28,13 @@ def _analyze(path: Path, format: str, json_output: bool, levels: set[str] | None
 
     matched = filter_events(events, levels=levels, contains=contains)
     report = summarize(matched).to_dict()
-    report.update({"source": str(path), "input_events": total_input, "matched_events": len(matched), "parse_errors": parse_errors})
+    report.update({
+        "source": str(path),
+        "input_events": total_input,
+        "matched_events": len(matched),
+        "parse_errors": parse_errors,
+        "findings": [finding.to_dict() for finding in detect_anomalies(matched)],
+    })
     if json_output:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
@@ -35,6 +42,10 @@ def _analyze(path: Path, format: str, json_output: bool, levels: set[str] | None
         print(f"Input: {total_input} | Matched: {len(matched)} | Parse errors: {parse_errors}")
         for level, count in report["levels"].items():
             print(f"{level:>8}: {count}")
+        if report["findings"]:
+            print("Findings:")
+            for finding in report["findings"]:
+                print(f"  [{finding['severity']}] {finding['rule']}: {finding['message']} ({finding['count']})")
     return 0 if parse_errors == 0 else 2
 
 
