@@ -16,6 +16,8 @@ Current foundation:
 - unstructured text parsing with level detection
 - automatic JSON/text detection
 - preservation of unknown JSON fields for later analysis
+- case-insensitive level and message filtering
+- reusable level/source aggregation
 - human-readable and JSON summary output
 - automated tests across supported Python versions
 
@@ -25,8 +27,12 @@ Current foundation:
 python -m pip install -e .
 loglens analyze /path/to/app.log
 loglens analyze /path/to/events.jsonl --format json --json
+loglens analyze /path/to/app.log --level ERROR --level WARN
+loglens analyze /path/to/app.log --contains "database" --json
 pytest -q
 ```
+
+`--level` can be repeated and combined with `--contains`. Reports distinguish total input records from records matching the active filters, so filtering remains visible and auditable.
 
 Example JSON lines input:
 
@@ -46,7 +52,7 @@ LogLens focuses on detection, troubleshooting, observability, and incident-analy
 - [x] Python package and CLI skeleton
 - [x] normalized event model
 - [x] text and JSON parsers
-- [ ] filtering and aggregation
+- [x] filtering and aggregation
 - [ ] basic anomaly rules
 - [x] JSON summary output
 - [ ] CSV event/report output
@@ -60,7 +66,7 @@ LogLens focuses on detection, troubleshooting, observability, and incident-analy
 
 ## Design notes
 
-Parsing is deliberately deterministic and dependency-light. Malformed records do not become executable content, and unknown structured fields are retained rather than silently discarded. Strict JSON mode reports malformed records while automatic mode can safely treat malformed JSON-looking lines as plain text.
+Parsing is deliberately deterministic and dependency-light. Malformed records do not become executable content, and unknown structured fields are retained rather than silently discarded. Strict JSON mode reports malformed records while automatic mode can safely treat malformed JSON-looking lines as plain text. Filtering is read-only and explicit; aggregation operates only on normalized events selected by the analyst.
 
 ## Development
 
