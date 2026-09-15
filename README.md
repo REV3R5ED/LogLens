@@ -20,6 +20,7 @@ Current capabilities:
 - reusable level/source aggregation
 - deterministic anomaly rules for elevated errors and repeated messages
 - analyst-configurable detection thresholds with safe validation
+- deterministic UTC time-window baselines for timestamped events
 - human-readable, JSON, and CSV summary output with explainable findings
 - automated tests across supported Python versions
 
@@ -32,6 +33,7 @@ loglens analyze /path/to/events.jsonl --format json --json
 loglens analyze /path/to/app.log --level ERROR --level WARN
 loglens analyze /path/to/app.log --contains "database" --json
 loglens analyze /path/to/app.log --error-threshold 10 --repeat-threshold 8 --json
+loglens analyze /path/to/events.jsonl --window-minutes 5 --json
 loglens analyze /path/to/app.log --csv > report.csv
 pytest -q
 ```
@@ -39,6 +41,12 @@ pytest -q
 `--level` can be repeated and combined with `--contains`. Reports distinguish total input records from records matching the active filters, so filtering remains visible and auditable. Detection runs only on the matched event set. `--json` and `--csv` are mutually exclusive report formats.
 
 Detection thresholds can be tuned per analysis with `--error-threshold` and `--repeat-threshold`. The defaults remain 5 and 5. Error thresholds must be at least 1 and repeat thresholds at least 2, preventing nonsensical configurations. JSON reports include the effective `detection_config` so saved results remain reproducible and auditable.
+
+### Time-window baselines
+
+Use `--window-minutes N` to group matched, timestamped events into fixed UTC windows from 1 minute through 24 hours. Each window records its start/end, total event count, error-level count, and deterministic level distribution. Windows align to Unix-epoch boundaries, making repeated analyses comparable even when input ordering changes. Events without a parsed timestamp remain part of the normal summary and detection flow but are explicitly excluded from the baseline; the report records `timestamped_events` so that coverage is visible. Offset-less ISO timestamps are interpreted as UTC for deterministic cross-system behavior.
+
+Time windows are descriptive baselines rather than incident verdicts. They provide a stable foundation for later scoring while keeping current analysis transparent and reproducible.
 
 CSV reports use a stable long-form schema (`record_type,name,value,severity,message`) that keeps summary metrics, level/source aggregates, and anomaly findings easy to inspect in spreadsheets or feed into downstream defensive workflows. CSV escaping is handled by Python's standard CSV writer so log-derived commas and quotes remain data rather than structure.
 
@@ -72,13 +80,13 @@ LogLens focuses on detection, troubleshooting, observability, and incident-analy
 
 ### v0.2 — Analysis
 - [x] configurable detection rules
-- [ ] time-window baselines
+- [x] time-window baselines
 - [ ] richer anomaly scoring
 - [ ] reusable report formats
 
 ## Design notes
 
-Parsing is deliberately deterministic and dependency-light. Malformed records do not become executable content, and unknown structured fields are retained rather than silently discarded. Strict JSON mode reports malformed records while automatic mode can safely treat malformed JSON-looking lines as plain text. Filtering is read-only and explicit; aggregation and detection operate only on normalized events selected by the analyst. Detection rules use visible thresholds so findings are reproducible and easy to audit, and machine-readable reports record the effective configuration. Report serialization is kept separate from analysis so additional safe output formats can be added without changing detection behavior.
+Parsing is deliberately deterministic and dependency-light. Malformed records do not become executable content, and unknown structured fields are retained rather than silently discarded. Strict JSON mode reports malformed records while automatic mode can safely treat malformed JSON-looking lines as plain text. Filtering is read-only and explicit; aggregation and detection operate only on normalized events selected by the analyst. Detection rules use visible thresholds so findings are reproducible and easy to audit, and machine-readable reports record the effective configuration. Time-window aggregation is descriptive, UTC-normalized, and excludes untimestamped records without discarding them from other analysis. Report serialization is kept separate from analysis so additional safe output formats can be added without changing detection behavior.
 
 ## Development
 
