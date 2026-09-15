@@ -13,7 +13,29 @@ from .parsers import parse_line
 from .reporting import report_to_csv
 
 
-def _analyze(path: Path, format: str, output_format: str, levels: set[str] | None, contains: str | None) -> int:
+def _positive_int(value: str) -> int:
+    parsed = int(value)
+    if parsed < 1:
+        raise argparse.ArgumentTypeError("must be at least 1")
+    return parsed
+
+
+def _repeat_threshold(value: str) -> int:
+    parsed = int(value)
+    if parsed < 2:
+        raise argparse.ArgumentTypeError("must be at least 2")
+    return parsed
+
+
+def _analyze(
+    path: Path,
+    format: str,
+    output_format: str,
+    levels: set[str] | None,
+    contains: str | None,
+    error_threshold: int,
+    repeat_threshold: int,
+) -> int:
     events = []
     total_input = 0
     parse_errors = 0
@@ -34,7 +56,18 @@ def _analyze(path: Path, format: str, output_format: str, levels: set[str] | Non
         "input_events": total_input,
         "matched_events": len(matched),
         "parse_errors": parse_errors,
-        "findings": [finding.to_dict() for finding in detect_anomalies(matched)],
+        "detection_config": {
+            "error_threshold": error_threshold,
+            "repeat_threshold": repeat_threshold,
+        },
+        "findings": [
+            finding.to_dict()
+            for finding in detect_anomalies(
+                matched,
+                error_threshold=error_threshold,
+                repeat_threshold=repeat_threshold,
+            )
+        ],
     })
     if output_format == "json":
         print(json.dumps(report, indent=2, sort_keys=True))
@@ -60,6 +93,18 @@ def build_parser() -> argparse.ArgumentParser:
     analyze.add_argument("--format", choices=("auto", "json", "text"), default="auto")
     analyze.add_argument("--level", action="append", dest="levels", help="include only this level; repeat for multiple levels")
     analyze.add_argument("--contains", help="include only events whose message contains this text")
+    analyze.add_argument(
+        "--error-threshold",
+        type=_positive_int,
+        default=5,
+        help="matched ERROR/CRITICAL/FATAL events required for an elevated-errors finding (default: 5)",
+    )
+    analyze.add_argument(
+        "--repeat-threshold",
+        type=_repeat_threshold,
+        default=5,
+        help="identical matched messages required for a repeated-message finding (default: 5, minimum: 2)",
+    )
     output = analyze.add_mutually_exclusive_group()
     output.add_argument("--json", action="store_const", const="json", dest="output_format", help="emit a JSON report")
     output.add_argument("--csv", action="store_const", const="csv", dest="output_format", help="emit a CSV report")
@@ -71,7 +116,15 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "analyze":
         try:
-            return _analyze(args.path, args.format, args.output_format, set(args.levels) if args.levels else None, args.contains)
+            return _analyze(
+                args.path,
+                args.format,
+                args.output_format,
+                set(args.levels) if args.levels else None,
+                args.contains,
+                args.error_threshold,
+                args.repeat_threshold,
+            )
         except OSError as exc:
             print(f"loglens: {exc}", file=sys.stderr)
             return 1
