@@ -94,4 +94,4 @@ The project favors readable Python, deterministic behavior, useful tests, and do
 
 ## License
 
-A project license will be finalized before the first stable release.
+LogLens is released under the [MIT License](LICENSE).
