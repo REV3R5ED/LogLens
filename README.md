@@ -19,7 +19,7 @@ Current foundation:
 - case-insensitive level and message filtering
 - reusable level/source aggregation
 - deterministic built-in anomaly rules for elevated errors and repeated messages
-- human-readable and JSON summary output with explainable findings
+- human-readable, JSON, and CSV summary output with explainable findings
 - automated tests across supported Python versions
 
 ## Quick start
@@ -30,10 +30,13 @@ loglens analyze /path/to/app.log
 loglens analyze /path/to/events.jsonl --format json --json
 loglens analyze /path/to/app.log --level ERROR --level WARN
 loglens analyze /path/to/app.log --contains "database" --json
+loglens analyze /path/to/app.log --csv > report.csv
 pytest -q
 ```
 
-`--level` can be repeated and combined with `--contains`. Reports distinguish total input records from records matching the active filters, so filtering remains visible and auditable. Detection runs only on the matched event set.
+`--level` can be repeated and combined with `--contains`. Reports distinguish total input records from records matching the active filters, so filtering remains visible and auditable. Detection runs only on the matched event set. `--json` and `--csv` are mutually exclusive report formats.
+
+CSV reports use a stable long-form schema (`record_type,name,value,severity,message`) that keeps summary metrics, level/source aggregates, and anomaly findings easy to inspect in spreadsheets or feed into downstream defensive workflows. CSV escaping is handled by Python's standard CSV writer so log-derived commas and quotes remain data rather than structure.
 
 Example JSON lines input:
 
@@ -45,7 +48,7 @@ LogLens normalizes the timestamp, level, message and source while retaining fiel
 
 ## Built-in anomaly rules
 
-The v0.1 detector intentionally favors explainability over opaque scoring. It reports an `elevated-errors` finding when at least five matched events are ERROR/CRITICAL/FATAL, and a `repeated-message` finding when the same non-empty message occurs at least five times. Findings include rule name, severity, explanation, and observed count in both terminal and JSON reports. These are triage signals, not claims that an incident occurred.
+The v0.1 detector intentionally favors explainability over opaque scoring. It reports an `elevated-errors` finding when at least five matched events are ERROR/CRITICAL/FATAL, and a `repeated-message` finding when the same non-empty message occurs at least five times. Findings include rule name, severity, explanation, and observed count in terminal, JSON, and CSV reports. These are triage signals, not claims that an incident occurred.
 
 ## Defensive Scope
 
@@ -60,7 +63,7 @@ LogLens focuses on detection, troubleshooting, observability, and incident-analy
 - [x] filtering and aggregation
 - [x] basic anomaly rules
 - [x] JSON summary output
-- [ ] CSV event/report output
+- [x] CSV report output
 - [x] unit tests and CI
 
 ### v0.2 — Analysis
@@ -71,7 +74,7 @@ LogLens focuses on detection, troubleshooting, observability, and incident-analy
 
 ## Design notes
 
-Parsing is deliberately deterministic and dependency-light. Malformed records do not become executable content, and unknown structured fields are retained rather than silently discarded. Strict JSON mode reports malformed records while automatic mode can safely treat malformed JSON-looking lines as plain text. Filtering is read-only and explicit; aggregation and detection operate only on normalized events selected by the analyst. Built-in anomaly rules use visible absolute thresholds so findings are reproducible and easy to audit.
+Parsing is deliberately deterministic and dependency-light. Malformed records do not become executable content, and unknown structured fields are retained rather than silently discarded. Strict JSON mode reports malformed records while automatic mode can safely treat malformed JSON-looking lines as plain text. Filtering is read-only and explicit; aggregation and detection operate only on normalized events selected by the analyst. Built-in anomaly rules use visible absolute thresholds so findings are reproducible and easy to audit. Report serialization is kept separate from analysis so additional safe output formats can be added without changing detection behavior.
 
 ## Development
 

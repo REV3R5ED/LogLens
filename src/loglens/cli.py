@@ -10,9 +10,10 @@ from pathlib import Path
 from .analysis import filter_events, summarize
 from .detection import detect_anomalies
 from .parsers import parse_line
+from .reporting import report_to_csv
 
 
-def _analyze(path: Path, format: str, json_output: bool, levels: set[str] | None, contains: str | None) -> int:
+def _analyze(path: Path, format: str, output_format: str, levels: set[str] | None, contains: str | None) -> int:
     events = []
     total_input = 0
     parse_errors = 0
@@ -35,8 +36,10 @@ def _analyze(path: Path, format: str, json_output: bool, levels: set[str] | None
         "parse_errors": parse_errors,
         "findings": [finding.to_dict() for finding in detect_anomalies(matched)],
     })
-    if json_output:
+    if output_format == "json":
         print(json.dumps(report, indent=2, sort_keys=True))
+    elif output_format == "csv":
+        print(report_to_csv(report), end="")
     else:
         print(f"LogLens: {path}")
         print(f"Input: {total_input} | Matched: {len(matched)} | Parse errors: {parse_errors}")
@@ -57,7 +60,10 @@ def build_parser() -> argparse.ArgumentParser:
     analyze.add_argument("--format", choices=("auto", "json", "text"), default="auto")
     analyze.add_argument("--level", action="append", dest="levels", help="include only this level; repeat for multiple levels")
     analyze.add_argument("--contains", help="include only events whose message contains this text")
-    analyze.add_argument("--json", action="store_true", dest="json_output", help="emit a JSON report")
+    output = analyze.add_mutually_exclusive_group()
+    output.add_argument("--json", action="store_const", const="json", dest="output_format", help="emit a JSON report")
+    output.add_argument("--csv", action="store_const", const="csv", dest="output_format", help="emit a CSV report")
+    analyze.set_defaults(output_format="text")
     return parser
 
 
@@ -65,7 +71,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "analyze":
         try:
-            return _analyze(args.path, args.format, args.json_output, set(args.levels) if args.levels else None, args.contains)
+            return _analyze(args.path, args.format, args.output_format, set(args.levels) if args.levels else None, args.contains)
         except OSError as exc:
             print(f"loglens: {exc}", file=sys.stderr)
             return 1
