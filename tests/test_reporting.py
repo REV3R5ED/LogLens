@@ -16,6 +16,7 @@ def test_report_to_csv_preserves_summary_aggregates_and_findings():
         "findings": [{
             "rule": "elevated-errors",
             "severity": "medium",
+            "score": 75,
             "message": "Elevated error-level event count",
             "count": 5,
         }],
@@ -24,12 +25,16 @@ def test_report_to_csv_preserves_summary_aggregates_and_findings():
     rows = list(csv.DictReader(io.StringIO(report_to_csv(report))))
     assert rows[0] == {
         "record_type": "summary", "name": "source", "value": "app.log",
-        "severity": "", "message": "",
+        "severity": "", "score": "", "message": "",
     }
-    assert {"record_type": "level", "name": "ERROR", "value": "5", "severity": "", "message": ""} in rows
+    assert {
+        "record_type": "level", "name": "ERROR", "value": "5",
+        "severity": "", "score": "", "message": "",
+    } in rows
     assert rows[-1]["record_type"] == "finding"
     assert rows[-1]["name"] == "elevated-errors"
     assert rows[-1]["severity"] == "medium"
+    assert rows[-1]["score"] == "75"
 
 
 def test_report_to_csv_quotes_untrusted_text_safely():
@@ -37,7 +42,10 @@ def test_report_to_csv_quotes_untrusted_text_safely():
         "events": 1,
         "levels": {},
         "sources": {},
-        "findings": [{"rule": "repeat", "count": 2, "severity": "low", "message": "comma, quote \" text"}],
+        "findings": [{
+            "rule": "repeat", "count": 2, "severity": "low", "score": 51,
+            "message": "comma, quote \" text",
+        }],
     }
     rows = list(csv.DictReader(io.StringIO(report_to_csv(report))))
     assert rows[-1]["message"] == "comma, quote \" text"

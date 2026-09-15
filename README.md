@@ -21,6 +21,7 @@ Current capabilities:
 - deterministic anomaly rules for elevated errors and repeated messages
 - analyst-configurable detection thresholds with safe validation
 - deterministic UTC time-window baselines for timestamped events
+- transparent 0-100 anomaly scoring with severity derived from score
 - human-readable, JSON, and CSV summary output with explainable findings
 - automated tests across supported Python versions
 
@@ -46,9 +47,13 @@ Detection thresholds can be tuned per analysis with `--error-threshold` and `--r
 
 Use `--window-minutes N` to group matched, timestamped events into fixed UTC windows from 1 minute through 24 hours. Each window records its start/end, total event count, error-level count, and deterministic level distribution. Windows align to Unix-epoch boundaries, making repeated analyses comparable even when input ordering changes. Events without a parsed timestamp remain part of the normal summary and detection flow but are explicitly excluded from the baseline; the report records `timestamped_events` so that coverage is visible. Offset-less ISO timestamps are interpreted as UTC for deterministic cross-system behavior.
 
-Time windows are descriptive baselines rather than incident verdicts. They provide a stable foundation for later scoring while keeping current analysis transparent and reproducible.
+Time windows are descriptive baselines rather than incident verdicts. They provide a stable foundation for scoring while keeping analysis transparent and reproducible.
 
-CSV reports use a stable long-form schema (`record_type,name,value,severity,message`) that keeps summary metrics, level/source aggregates, and anomaly findings easy to inspect in spreadsheets or feed into downstream defensive workflows. CSV escaping is handled by Python's standard CSV writer so log-derived commas and quotes remain data rather than structure.
+### Anomaly scoring
+
+Every finding now includes a deterministic score from 0 to 100. A rule that reaches its configured threshold starts at 50 points. Up to 25 additional points reflect how far the observed count exceeds the threshold, and up to 25 reflect the finding's prevalence across the matched event set. Scores below 60 are `low`, 60-79 are `medium`, and 80 or above are `high`. This is deliberately simple and explainable: the score is a triage aid, not a probability or incident verdict.
+
+JSON and CSV reports preserve the score for downstream review. CSV uses the stable long-form columns `record_type,name,value,severity,score,message`; log-derived commas and quotes are escaped by Python's standard CSV writer.
 
 Example JSON lines input:
 
@@ -60,7 +65,7 @@ LogLens normalizes the timestamp, level, message and source while retaining fiel
 
 ## Built-in anomaly rules
 
-The detector intentionally favors explainability over opaque scoring. It reports an `elevated-errors` finding when the configured number of matched events are ERROR/CRITICAL/FATAL, and a `repeated-message` finding when the same non-empty message reaches its configured threshold. Findings include rule name, severity, explanation, and observed count in terminal, JSON, and CSV reports. These are triage signals, not claims that an incident occurred.
+The detector intentionally favors explainability over opaque scoring. It reports an `elevated-errors` finding when the configured number of matched events are ERROR/CRITICAL/FATAL, and a `repeated-message` finding when the same non-empty message reaches its configured threshold. Findings include rule name, severity, score, explanation, and observed count in machine-readable reports. These are triage signals, not claims that an incident occurred.
 
 ## Defensive Scope
 
@@ -81,12 +86,12 @@ LogLens focuses on detection, troubleshooting, observability, and incident-analy
 ### v0.2 — Analysis
 - [x] configurable detection rules
 - [x] time-window baselines
-- [ ] richer anomaly scoring
+- [x] richer anomaly scoring
 - [ ] reusable report formats
 
 ## Design notes
 
-Parsing is deliberately deterministic and dependency-light. Malformed records do not become executable content, and unknown structured fields are retained rather than silently discarded. Strict JSON mode reports malformed records while automatic mode can safely treat malformed JSON-looking lines as plain text. Filtering is read-only and explicit; aggregation and detection operate only on normalized events selected by the analyst. Detection rules use visible thresholds so findings are reproducible and easy to audit, and machine-readable reports record the effective configuration. Time-window aggregation is descriptive, UTC-normalized, and excludes untimestamped records without discarding them from other analysis. Report serialization is kept separate from analysis so additional safe output formats can be added without changing detection behavior.
+Parsing is deliberately deterministic and dependency-light. Malformed records do not become executable content, and unknown structured fields are retained rather than silently discarded. Strict JSON mode reports malformed records while automatic mode can safely treat malformed JSON-looking lines as plain text. Filtering is read-only and explicit; aggregation and detection operate only on normalized events selected by the analyst. Detection rules use visible thresholds and a documented scoring formula so findings are reproducible and easy to audit. Machine-readable reports record effective configuration and finding scores. Time-window aggregation is descriptive, UTC-normalized, and excludes untimestamped records without discarding them from other analysis. Report serialization is kept separate from analysis so additional safe output formats can be added without changing detection behavior.
 
 ## Development
 
