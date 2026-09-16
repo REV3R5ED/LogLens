@@ -123,3 +123,43 @@ def test_json_and_csv_are_mutually_exclusive():
     with pytest.raises(SystemExit) as exc:
         build_parser().parse_args(["analyze", "app.log", "--json", "--csv"])
     assert exc.value.code == 2
+
+
+def test_fail_on_finding_returns_three_after_emitting_report(tmp_path, capsys):
+    log = tmp_path / "app.log"
+    log.write_text("ERROR disk full\nERROR disk full\n", encoding="utf-8")
+    exit_code = main([
+        "analyze", str(log), "--error-threshold", "2", "--repeat-threshold", "2",
+        "--fail-on-finding", "--json",
+    ])
+    assert exit_code == 3
+    report = json.loads(capsys.readouterr().out)
+    assert {finding["rule"] for finding in report["findings"]} == {
+        "elevated-errors", "repeated-message",
+    }
+
+
+def test_fail_on_finding_keeps_clean_analysis_successful(tmp_path, capsys):
+    log = tmp_path / "app.log"
+    log.write_text("INFO healthy\n", encoding="utf-8")
+    exit_code = main(["analyze", str(log), "--fail-on-finding", "--json"])
+    assert exit_code == 0
+    assert json.loads(capsys.readouterr().out)["findings"] == []
+
+
+def test_parse_error_takes_precedence_over_finding_exit_code(tmp_path, capsys):
+    log = tmp_path / "events.jsonl"
+    log.write_text(
+        '{"level":"ERROR","message":"database unavailable"}\n'
+        '{"level":"ERROR","message":"database unavailable"}\n'
+        '{not valid json}\n',
+        encoding="utf-8",
+    )
+    exit_code = main([
+        "analyze", str(log), "--format", "json", "--error-threshold", "2",
+        "--repeat-threshold", "2", "--fail-on-finding", "--json",
+    ])
+    assert exit_code == 2
+    report = json.loads(capsys.readouterr().out)
+    assert report["parse_errors"] == 1
+    assert report["findings"]

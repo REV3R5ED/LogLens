@@ -44,6 +44,7 @@ def _analyze(
     error_threshold: int,
     repeat_threshold: int,
     window_minutes: int | None,
+    fail_on_finding: bool,
 ) -> int:
     events = []
     total_input = 0
@@ -59,6 +60,14 @@ def _analyze(
                 parse_errors += 1
 
     matched = filter_events(events, levels=levels, contains=contains)
+    findings = [
+        finding.to_dict()
+        for finding in detect_anomalies(
+            matched,
+            error_threshold=error_threshold,
+            repeat_threshold=repeat_threshold,
+        )
+    ]
     report = summarize(matched).to_dict()
     report.update({
         "source": str(path),
@@ -69,14 +78,7 @@ def _analyze(
             "error_threshold": error_threshold,
             "repeat_threshold": repeat_threshold,
         },
-        "findings": [
-            finding.to_dict()
-            for finding in detect_anomalies(
-                matched,
-                error_threshold=error_threshold,
-                repeat_threshold=repeat_threshold,
-            )
-        ],
+        "findings": findings,
     })
     if window_minutes is not None:
         report["time_baseline"] = {
@@ -96,11 +98,15 @@ def _analyze(
         if "time_baseline" in report:
             baseline = report["time_baseline"]
             print(f"Time windows: {len(baseline['windows'])} x {window_minutes}m | Timestamped: {baseline['timestamped_events']}")
-        if report["findings"]:
+        if findings:
             print("Findings:")
-            for finding in report["findings"]:
+            for finding in findings:
                 print(f"  [{finding['severity']}] {finding['rule']}: {finding['message']} ({finding['count']})")
-    return 0 if parse_errors == 0 else 2
+    if parse_errors:
+        return 2
+    if fail_on_finding and findings:
+        return 3
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -123,6 +129,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--window-minutes", type=_window_minutes,
         help="include deterministic UTC time-window baselines (1-1440 minutes; timestamped events only)",
     )
+    analyze.add_argument(
+        "--fail-on-finding", action="store_true",
+        help="return exit code 3 when one or more anomaly findings are emitted",
+    )
     output = analyze.add_mutually_exclusive_group()
     output.add_argument("--json", action="store_const", const="json", dest="output_format", help="emit a JSON report")
     output.add_argument("--csv", action="store_const", const="csv", dest="output_format", help="emit a CSV report")
@@ -138,6 +148,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.path, args.format, args.output_format,
                 set(args.levels) if args.levels else None, args.contains,
                 args.error_threshold, args.repeat_threshold, args.window_minutes,
+                args.fail_on_finding,
             )
         except OSError as exc:
             print(f"loglens: {exc}", file=sys.stderr)

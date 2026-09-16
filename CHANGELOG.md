@@ -18,6 +18,7 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 - Reusable deterministic JSON and long-form CSV report serializers.
 - CSV preservation of detection configuration and time-window baseline context.
 - CLI integration coverage for text, JSON and CSV reports, filtering, malformed strict-JSON input, and missing-file behavior.
+- Optional `--fail-on-finding` CI gate that preserves the full report and returns exit code 3 when anomaly findings are emitted; parse errors retain precedence with exit code 2.
 
 ### Changed
 - Detection and reporting operate on the explicitly filtered event set and retain effective analysis configuration for reproducibility.
