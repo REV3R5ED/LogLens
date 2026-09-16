@@ -19,6 +19,11 @@ def test_json_parser_supports_aliases():
     assert event.message == "slow response"
 
 
+def test_json_parser_canonicalizes_common_severity_aliases():
+    assert parse_json_line('{"level":"warning","message":"slow"}').level == "WARN"
+    assert parse_json_line('{"level":"fatal","message":"down"}').level == "CRITICAL"
+
+
 def test_json_parser_rejects_non_object():
     with pytest.raises(ValueError):
         parse_json_line('["not", "an", "event"]')
@@ -28,6 +33,11 @@ def test_text_parser_detects_explicit_level():
     event = parse_text_line("2026-09-15 [ERROR] database unavailable\n")
     assert event.level == "ERROR"
     assert event.message.endswith("database unavailable")
+
+
+def test_text_parser_canonicalizes_common_severity_aliases():
+    assert parse_text_line("WARNING response degraded").level == "WARN"
+    assert parse_text_line("FATAL database unavailable").level == "CRITICAL"
 
 
 def test_text_parser_parses_leading_iso_timestamp():

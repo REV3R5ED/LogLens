@@ -8,7 +8,8 @@ from typing import Any
 
 from .model import LogEvent
 
-_LEVELS = {"TRACE", "DEBUG", "INFO", "NOTICE", "WARN", "WARNING", "ERROR", "CRITICAL", "FATAL"}
+_LEVELS = {"TRACE", "DEBUG", "INFO", "NOTICE", "WARN", "ERROR", "CRITICAL"}
+_LEVEL_ALIASES = {"WARNING": "WARN", "FATAL": "CRITICAL"}
 
 
 def _timestamp(value: Any) -> datetime | None:
@@ -18,6 +19,11 @@ def _timestamp(value: Any) -> datetime | None:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
+
+
+def _level(value: Any) -> str:
+    candidate = str(value).upper()
+    return _LEVEL_ALIASES.get(candidate, candidate if candidate in _LEVELS else "UNKNOWN")
 
 
 def parse_json_line(line: str, *, source: str | None = None) -> LogEvent:
@@ -31,8 +37,7 @@ def parse_json_line(line: str, *, source: str | None = None) -> LogEvent:
         raise ValueError("JSON log record must be an object")
 
     message = str(value.get("message", value.get("msg", "")))
-    raw_level = str(value.get("level", value.get("severity", "UNKNOWN"))).upper()
-    level = raw_level if raw_level in _LEVELS else "UNKNOWN"
+    level = _level(value.get("level", value.get("severity", "UNKNOWN")))
     timestamp = _timestamp(value.get("timestamp", value.get("time")))
     reserved = {"message", "msg", "level", "severity", "timestamp", "time"}
     fields = {key: item for key, item in value.items() if key not in reserved}
@@ -45,9 +50,6 @@ def _leading_text_timestamp(message: str) -> datetime | None:
     if not parts:
         return None
 
-    # Bracketed timestamps are common in application logs. Normalize brackets
-    # only on the leading timestamp tokens so arbitrary dates later in a message
-    # are never interpreted as event time.
     first = parts[0].strip("[]")
     if len(parts) >= 2:
         second = parts[1].strip("[]")
@@ -58,13 +60,13 @@ def _leading_text_timestamp(message: str) -> datetime | None:
 
 
 def parse_text_line(line: str, *, source: str | None = None) -> LogEvent:
-    """Normalize text and infer an explicit level plus a leading ISO timestamp."""
+    """Normalize text and infer an explicit canonical level plus a leading ISO timestamp."""
     message = line.rstrip("\r\n")
     tokens = message.replace("[", " ").replace("]", " ").replace(":", " ").split()
     level = "UNKNOWN"
     for token in tokens:
-        candidate = token.upper()
-        if candidate in _LEVELS:
+        candidate = _level(token)
+        if candidate != "UNKNOWN":
             level = candidate
             break
 
