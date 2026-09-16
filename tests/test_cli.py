@@ -83,7 +83,12 @@ def test_csv_output_is_parseable_and_preserves_report_sections(tmp_path, capsys)
     assert exit_code == 0
     rows = list(csv.DictReader(io.StringIO(capsys.readouterr().out)))
     assert rows
-    assert {row["record_type"] for row in rows} >= {"summary", "detection_config", "finding"}
+    # The reusable CSV serializer exposes detection configuration as stable
+    # long-form `config` records; keep the CLI contract aligned with it.
+    assert {row["record_type"] for row in rows} >= {"summary", "config", "finding"}
+    assert {row["name"] for row in rows if row["record_type"] == "config"} == {
+        "error_threshold", "repeat_threshold",
+    }
     assert {row["name"] for row in rows if row["record_type"] == "finding"} == {
         "elevated-errors", "repeated-message",
     }
