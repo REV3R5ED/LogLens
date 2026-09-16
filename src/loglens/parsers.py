@@ -69,13 +69,25 @@ def _leading_text_timestamp(message: str) -> datetime | None:
     return _timestamp(first)
 
 
+def _text_level(token: str) -> str:
+    """Normalize a bare severity token or an explicit level/severity key-value token."""
+    candidate = _level(token)
+    if candidate != "UNKNOWN":
+        return candidate
+
+    key, separator, value = token.partition("=")
+    if separator and key.strip().lower() in {"level", "severity"}:
+        return _level(value.strip("[],'\""))
+    return "UNKNOWN"
+
+
 def parse_text_line(line: str, *, source: str | None = None) -> LogEvent:
     """Normalize text and infer an explicit canonical level plus a leading ISO timestamp."""
     message = line.rstrip("\r\n")
     tokens = message.replace("[", " ").replace("]", " ").replace(":", " ").split()
     level = "UNKNOWN"
     for token in tokens:
-        candidate = _level(token)
+        candidate = _text_level(token)
         if candidate != "UNKNOWN":
             level = candidate
             break

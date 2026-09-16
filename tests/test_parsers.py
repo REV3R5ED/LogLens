@@ -58,6 +58,16 @@ def test_text_parser_canonicalizes_common_severity_aliases():
     assert parse_text_line("INFORMATIONAL service ready").level == "INFO"
 
 
+def test_text_parser_recognizes_logfmt_level_fields():
+    assert parse_text_line("ts=2026-09-15T10:00:00Z level=warning msg=slow").level == "WARN"
+    assert parse_text_line("service=api severity=ERR msg=failed").level == "ERROR"
+    assert parse_text_line("severity='critical' service=db").level == "CRITICAL"
+
+
+def test_text_parser_does_not_treat_arbitrary_key_values_as_severity():
+    assert parse_text_line("status=ERROR service=api request=failed").level == "UNKNOWN"
+
+
 def test_text_parser_parses_leading_iso_timestamp():
     event = parse_text_line("2026-09-15T10:00:00Z ERROR database unavailable")
     assert event.timestamp is not None
