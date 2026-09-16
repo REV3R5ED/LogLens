@@ -45,14 +45,16 @@ def _leading_text_timestamp(message: str) -> datetime | None:
     if not parts:
         return None
 
-    # Prefer the common ``YYYY-MM-DD HH:MM:SS`` form before trying the first
-    # token alone. Otherwise a valid date token would silently become midnight
-    # and discard the time-of-day that follows it.
+    # Bracketed timestamps are common in application logs. Normalize brackets
+    # only on the leading timestamp tokens so arbitrary dates later in a message
+    # are never interpreted as event time.
+    first = parts[0].strip("[]")
     if len(parts) >= 2:
-        combined = _timestamp(f"{parts[0]}T{parts[1]}")
+        second = parts[1].strip("[]")
+        combined = _timestamp(f"{first}T{second}")
         if combined is not None:
             return combined
-    return _timestamp(parts[0])
+    return _timestamp(first)
 
 
 def parse_text_line(line: str, *, source: str | None = None) -> LogEvent:

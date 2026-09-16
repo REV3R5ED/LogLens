@@ -48,6 +48,18 @@ def test_text_parser_preserves_offset_in_split_iso_timestamp():
     assert event.timestamp.isoformat() == "2026-09-15T10:00:00+00:00"
 
 
+def test_text_parser_parses_bracketed_iso_timestamp():
+    event = parse_text_line("[2026-09-15T10:00:00Z] ERROR database unavailable")
+    assert event.timestamp is not None
+    assert event.timestamp.isoformat() == "2026-09-15T10:00:00+00:00"
+
+
+def test_text_parser_parses_bracketed_split_iso_timestamp():
+    event = parse_text_line("[2026-09-15 10:00:00+00:00] WARN slow response")
+    assert event.timestamp is not None
+    assert event.timestamp.isoformat() == "2026-09-15T10:00:00+00:00"
+
+
 def test_text_parser_does_not_guess_embedded_timestamp():
     event = parse_text_line("INFO maintenance begins at 2026-09-15T10:00:00Z")
     assert event.timestamp is None
