@@ -5,6 +5,11 @@ import json
 from loglens.reporting import report_to_csv, report_to_json
 
 
+def _read_csv(rendered: str):
+    """Parse generated CSV with universal-newline handling across Python versions."""
+    return list(csv.DictReader(io.StringIO(rendered, newline="")))
+
+
 def test_report_to_json_is_deterministic_and_readable():
     report = {"z": 1, "a": {"b": 2}}
     rendered = report_to_json(report)
@@ -20,7 +25,7 @@ def test_report_to_csv_preserves_summary_aggregates_and_findings():
         "findings": [{"rule": "elevated-errors", "severity": "medium", "score": 75,
                       "message": "Elevated error-level event count", "count": 5}],
     }
-    rows = list(csv.DictReader(io.StringIO(report_to_csv(report))))
+    rows = _read_csv(report_to_csv(report))
     assert rows[0] == {"record_type": "summary", "name": "source", "value": "app.log", "severity": "", "score": "", "message": ""}
     assert {"record_type": "level", "name": "ERROR", "value": "5", "severity": "", "score": "", "message": ""} in rows
     assert rows[-1]["record_type"] == "finding"
@@ -38,7 +43,7 @@ def test_report_to_csv_preserves_config_and_time_baseline():
                          "events": 3, "error_events": 2, "levels": {"WARN": 1, "ERROR": 2}}]},
         "findings": [],
     }
-    rows = list(csv.DictReader(io.StringIO(report_to_csv(report))))
+    rows = _read_csv(report_to_csv(report))
     assert [(row["name"], row["value"]) for row in rows if row["record_type"] == "config"] == [("error_threshold", "3"), ("repeat_threshold", "5")]
     assert {row["name"] for row in rows if row["record_type"] == "baseline"} == {"window_minutes", "timestamped_events"}
     window = next(row for row in rows if row["record_type"] == "window")
@@ -50,7 +55,7 @@ def test_report_to_csv_preserves_config_and_time_baseline():
 
 def test_report_to_csv_quotes_untrusted_text_safely():
     report = {"events": 1, "levels": {}, "sources": {}, "findings": [{"rule": "repeat", "count": 2, "severity": "low", "score": 51, "message": "comma, quote \" text"}]}
-    rows = list(csv.DictReader(io.StringIO(report_to_csv(report))))
+    rows = _read_csv(report_to_csv(report))
     assert rows[-1]["message"] == "comma, quote \" text"
 
 
@@ -58,7 +63,7 @@ def test_report_to_csv_neutralizes_spreadsheet_formula_prefixes():
     report = {"source": "=cmd", "events": 4, "levels": {"+WARN": 1}, "sources": {"@service": 4},
               "findings": [{"rule": "-rule", "count": 4, "severity": "low", "score": 50,
                             "message": "=HYPERLINK(\"https://example.invalid\")"}]}
-    rows = list(csv.DictReader(io.StringIO(report_to_csv(report))))
+    rows = _read_csv(report_to_csv(report))
     assert rows[0]["value"] == "'=cmd"
     assert next(row for row in rows if row["record_type"] == "level")["name"] == "'+WARN"
     assert next(row for row in rows if row["record_type"] == "source")["name"] == "'@service"
@@ -70,19 +75,19 @@ def test_report_to_csv_neutralizes_formula_prefixes_after_leading_whitespace():
     prefixes = (" =1+1", "\t+cmd", "\r-2+3", "\n@SUM(A1:A2)")
     for value in prefixes:
         report = {"source": value, "events": 1, "levels": {}, "sources": {}, "findings": []}
-        rows = list(csv.DictReader(io.StringIO(report_to_csv(report))))
+        rows = _read_csv(report_to_csv(report))
         assert rows[0]["value"] == "'" + value
 
 
 def test_report_to_csv_preserves_benign_leading_whitespace_and_numeric_values():
     report = {"source": "  normal.log", "events": -1, "levels": {}, "sources": {}, "findings": []}
-    rows = list(csv.DictReader(io.StringIO(report_to_csv(report))))
+    rows = _read_csv(report_to_csv(report))
     assert rows[0]["value"] == "  normal.log"
     assert next(row for row in rows if row["name"] == "events")["value"] == "-1"
 
 
 def test_report_to_csv_is_deterministic_for_aggregates():
     report = {"events": 2, "levels": {"WARN": 1, "ERROR": 1}, "sources": {"z": 1, "a": 1}, "findings": []}
-    rows = list(csv.DictReader(io.StringIO(report_to_csv(report))))
+    rows = _read_csv(report_to_csv(report))
     aggregate_names = [(row["record_type"], row["name"]) for row in rows[1:]]
     assert aggregate_names == [("level", "ERROR"), ("level", "WARN"), ("source", "a"), ("source", "z")]
