@@ -30,6 +30,17 @@ def test_text_parser_detects_explicit_level():
     assert event.message.endswith("database unavailable")
 
 
+def test_text_parser_parses_leading_iso_timestamp():
+    event = parse_text_line("2026-09-15T10:00:00Z ERROR database unavailable")
+    assert event.timestamp is not None
+    assert event.timestamp.isoformat() == "2026-09-15T10:00:00+00:00"
+
+
+def test_text_parser_does_not_guess_embedded_timestamp():
+    event = parse_text_line("INFO maintenance begins at 2026-09-15T10:00:00Z")
+    assert event.timestamp is None
+
+
 def test_auto_parser_falls_back_to_text_for_malformed_json():
     event = parse_line("{broken json ERROR", format="auto")
     assert event.level == "ERROR"
