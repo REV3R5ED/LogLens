@@ -95,8 +95,10 @@ LogLens focuses on detection, troubleshooting, observability, and incident-analy
 
 ### Release hardening
 - [x] expand CLI integration coverage
-- [ ] add changelog and release notes
+- [x] add changelog and release notes
 - [ ] tag a portfolio-ready release
+
+Release history and notable changes are maintained in [CHANGELOG.md](CHANGELOG.md).
 
 ## Design notes
 
