@@ -19,6 +19,28 @@ def test_json_parser_supports_aliases():
     assert event.message == "slow response"
 
 
+def test_json_parser_supports_ecs_style_flat_aliases():
+    event = parse_json_line('{"@timestamp":"2026-09-15T10:00:00Z","log.level":"warning","message":"slow response","service.name":"api"}')
+    assert event.level == "WARN"
+    assert event.timestamp is not None
+    assert event.timestamp.isoformat() == "2026-09-15T10:00:00+00:00"
+    assert event.fields == {"service.name": "api"}
+
+
+def test_json_parser_supports_ts_timestamp_alias():
+    event = parse_json_line('{"ts":"2026-09-15T10:00:00Z","level":"info","message":"ready"}')
+    assert event.timestamp is not None
+    assert event.timestamp.isoformat() == "2026-09-15T10:00:00+00:00"
+    assert "ts" not in event.fields
+
+
+def test_json_parser_prefers_canonical_fields_over_aliases():
+    event = parse_json_line('{"timestamp":"2026-09-15T10:00:00Z","@timestamp":"2026-09-16T10:00:00Z","level":"error","log.level":"info","message":"failed"}')
+    assert event.level == "ERROR"
+    assert event.timestamp is not None
+    assert event.timestamp.isoformat() == "2026-09-15T10:00:00+00:00"
+
+
 def test_json_parser_canonicalizes_common_severity_aliases():
     aliases = {
         "warning": "WARN",

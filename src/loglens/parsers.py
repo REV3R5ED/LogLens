@@ -36,20 +36,28 @@ def _level(value: Any) -> str:
     return _LEVEL_ALIASES.get(candidate, candidate if candidate in _LEVELS else "UNKNOWN")
 
 
+def _first_present(record: dict[str, Any], keys: tuple[str, ...], default: Any = None) -> Any:
+    """Return the first explicitly present alias, preserving falsey values."""
+    for key in keys:
+        if key in record:
+            return record[key]
+    return default
+
+
 def parse_json_line(line: str, *, source: str | None = None) -> LogEvent:
     """Parse one JSON object into a normalized event.
 
     Unknown keys are preserved in ``fields`` so analysis never silently loses
-    useful context.
+    useful context. Common ECS/logging aliases are normalized explicitly.
     """
     value = json.loads(line)
     if not isinstance(value, dict):
         raise ValueError("JSON log record must be an object")
 
-    message = str(value.get("message", value.get("msg", "")))
-    level = _level(value.get("level", value.get("severity", "UNKNOWN")))
-    timestamp = _timestamp(value.get("timestamp", value.get("time")))
-    reserved = {"message", "msg", "level", "severity", "timestamp", "time"}
+    message = str(_first_present(value, ("message", "msg"), ""))
+    level = _level(_first_present(value, ("level", "severity", "log.level"), "UNKNOWN"))
+    timestamp = _timestamp(_first_present(value, ("timestamp", "time", "@timestamp", "ts")))
+    reserved = {"message", "msg", "level", "severity", "log.level", "timestamp", "time", "@timestamp", "ts"}
     fields = {key: item for key, item in value.items() if key not in reserved}
     return LogEvent(message=message, level=level, timestamp=timestamp, source=source, fields=fields)
 
