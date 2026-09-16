@@ -102,3 +102,21 @@ def test_threshold_validation():
         assert "thresholds" in str(exc)
     else:
         raise AssertionError("expected threshold validation failure")
+
+
+def test_thresholds_reject_non_integer_values():
+    invalid_values = (2.5, float("nan"), float("inf"), True, "5")
+    for value in invalid_values:
+        try:
+            detect_anomalies([], error_threshold=value)  # type: ignore[arg-type]
+        except ValueError as exc:
+            assert "integers" in str(exc)
+        else:
+            raise AssertionError(f"expected validation failure for {value!r}")
+
+        try:
+            detect_anomalies([], repeat_threshold=value)  # type: ignore[arg-type]
+        except ValueError as exc:
+            assert "integers" in str(exc)
+        else:
+            raise AssertionError(f"expected validation failure for {value!r}")

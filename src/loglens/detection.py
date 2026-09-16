@@ -66,6 +66,13 @@ def detect_anomalies(
     into a misleading repetition signal. Prevalence scoring uses that same scope
     so unrelated severity traffic cannot dilute a concentrated signal.
     """
+    if (
+        not isinstance(error_threshold, int)
+        or isinstance(error_threshold, bool)
+        or not isinstance(repeat_threshold, int)
+        or isinstance(repeat_threshold, bool)
+    ):
+        raise ValueError("thresholds must be integers")
     if error_threshold < 1 or repeat_threshold < 2:
         raise ValueError("thresholds must be positive (repeat_threshold >= 2)")
 
