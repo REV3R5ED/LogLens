@@ -16,7 +16,7 @@ def report_to_json(report: Mapping[str, Any]) -> str:
 
 def _csv_safe(value: Any) -> Any:
     """Neutralize spreadsheet formula prefixes in untrusted text cells."""
-    if isinstance(value, str) and value.startswith(("=", "+", "-", "@")):
+    if isinstance(value, str) and value.lstrip(" \t\r\n").startswith(("=", "+", "-", "@")):
         return "'" + value
     return value
 
@@ -27,7 +27,8 @@ def report_to_csv(report: Mapping[str, Any]) -> str:
     The long-form schema intentionally carries summary data, effective detection
     configuration, time-window baselines, aggregates, and findings without
     requiring consumers to understand LogLens' internal Python objects. Text
-    cells that could be interpreted as spreadsheet formulas are neutralized.
+    cells that could be interpreted as spreadsheet formulas are neutralized,
+    including formula prefixes hidden behind leading whitespace.
     """
     output = io.StringIO(newline="")
     writer = csv.writer(output, lineterminator="\n")

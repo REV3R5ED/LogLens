@@ -19,6 +19,7 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 
 ### Security
 - CSV report serialization now neutralizes untrusted text beginning with spreadsheet formula prefixes (`=`, `+`, `-`, `@`) while preserving numeric values, reducing formula-injection risk when analysts open exported reports in spreadsheet applications.
+- CSV formula-injection protection now also detects dangerous prefixes hidden behind leading spaces, tabs, carriage returns, or newlines while preserving benign whitespace.
 
 ### Planned
 - Portfolio-ready tagged release after final CI and documentation review.
