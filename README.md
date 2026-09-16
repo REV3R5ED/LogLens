@@ -2,7 +2,7 @@
 
 Lightweight log analysis and anomaly detection for defensive operations.
 
-> Status: active development / v0.2
+> Status: active development / v0.2 release hardening
 
 ## Goals
 
@@ -24,6 +24,7 @@ Current capabilities:
 - transparent 0-100 anomaly scoring with severity derived from score
 - reusable deterministic JSON and long-form CSV report serializers
 - CSV preservation of effective detection configuration and time-window baselines
+- CLI integration coverage for text, JSON, CSV, filtering, parse failures, and operational errors
 - automated tests across supported Python versions
 
 ## Quick start
@@ -56,7 +57,7 @@ Every finding includes a deterministic score from 0 to 100. A rule that reaches 
 
 ### Reusable reports
 
-JSON and CSV output now share reusable serializers in `loglens.reporting`, keeping formatting separate from parsing and detection. JSON is deterministic and human-readable. CSV uses the stable long-form columns `record_type,name,value,severity,score,message`; in addition to summaries, aggregates, and findings, it preserves the effective detection thresholds and time-baseline metadata. Time-window rows carry the window start, event count, error-event count, and a deterministic JSON level distribution so spreadsheet exports do not silently lose baseline context. Log-derived commas and quotes are escaped by Python's standard CSV writer.
+JSON and CSV output share reusable serializers in `loglens.reporting`, keeping formatting separate from parsing and detection. JSON is deterministic and human-readable. CSV uses the stable long-form columns `record_type,name,value,severity,score,message`; in addition to summaries, aggregates, and findings, it preserves the effective detection thresholds and time-baseline metadata. Time-window rows carry the window start, event count, error-event count, and a deterministic JSON level distribution so spreadsheet exports do not silently lose baseline context. Log-derived commas and quotes are escaped by Python's standard CSV writer.
 
 Example JSON lines input:
 
@@ -93,7 +94,7 @@ LogLens focuses on detection, troubleshooting, observability, and incident-analy
 - [x] reusable report formats
 
 ### Release hardening
-- [ ] expand CLI integration coverage
+- [x] expand CLI integration coverage
 - [ ] add changelog and release notes
 - [ ] tag a portfolio-ready release
 
@@ -103,7 +104,7 @@ Parsing is deliberately deterministic and dependency-light. Malformed records do
 
 ## Development
 
-The project favors readable Python, deterministic behavior, useful tests, and documentation that makes every detection understandable.
+The project favors readable Python, deterministic behavior, useful tests, and documentation that makes every detection understandable. CLI integration tests exercise the public command surface without network access, including report formats, filters, malformed strict-JSON input, and missing-file behavior.
 
 ## License
 
