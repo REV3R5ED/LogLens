@@ -6,6 +6,9 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 
 ## [Unreleased]
 
+### Added
+- Leading ISO-8601 timestamp recognition for unstructured text logs, allowing common timestamp-first application logs to participate in deterministic time-window baselines without guessing dates embedded later in messages.
+
 ### Planned
 - Portfolio-ready tagged release after final CI and documentation review.
 
