@@ -79,6 +79,14 @@ def test_report_to_csv_neutralizes_formula_prefixes_after_leading_whitespace():
         assert rows[0]["value"] == "'" + value
 
 
+def test_report_to_csv_neutralizes_formula_prefixes_after_unicode_whitespace():
+    prefixes = ("\u00a0=1+1", "\u2003+cmd", "\u202f-2+3", "\u3000@SUM(A1:A2)")
+    for value in prefixes:
+        report = {"source": value, "events": 1, "levels": {}, "sources": {}, "findings": []}
+        rows = _read_csv(report_to_csv(report))
+        assert rows[0]["value"] == "'" + value
+
+
 def test_report_to_csv_preserves_benign_leading_whitespace_and_numeric_values():
     report = {"source": "  normal.log", "events": -1, "levels": {}, "sources": {}, "findings": []}
     rows = _read_csv(report_to_csv(report))
