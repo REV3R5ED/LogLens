@@ -13,7 +13,7 @@ Current capabilities:
 - installable Python package and `loglens` CLI
 - normalized `LogEvent` records
 - JSON log parsing with common field aliases
-- unstructured text parsing with level detection
+- unstructured text parsing with level detection and leading ISO-8601 timestamp recognition
 - automatic JSON/text detection
 - preservation of unknown JSON fields for later analysis
 - case-insensitive level and message filtering
@@ -48,6 +48,8 @@ Detection thresholds can be tuned per analysis with `--error-threshold` and `--r
 ### Time-window baselines
 
 Use `--window-minutes N` to group matched, timestamped events into fixed UTC windows from 1 minute through 24 hours. Each window records its start/end, total event count, error-level count, and deterministic level distribution. Windows align to Unix-epoch boundaries, making repeated analyses comparable even when input ordering changes. Events without a parsed timestamp remain part of the normal summary and detection flow but are explicitly excluded from the baseline; the report records `timestamped_events` so that coverage is visible. Offset-less ISO timestamps are interpreted as UTC for deterministic cross-system behavior.
+
+Timestamp coverage is available for both structured JSON logs and common text logs that begin with an ISO-8601 timestamp, for example `2026-09-15T10:00:00Z ERROR database unavailable`. Text parsing intentionally considers only the leading token so dates mentioned later in free-form messages are not guessed to be event timestamps.
 
 Time windows are descriptive baselines rather than incident verdicts. They provide a stable foundation for scoring while keeping analysis transparent and reproducible.
 
@@ -96,6 +98,7 @@ LogLens focuses on detection, troubleshooting, observability, and incident-analy
 ### Release hardening
 - [x] expand CLI integration coverage
 - [x] add changelog and release notes
+- [x] parse leading ISO timestamps from common text logs
 - [ ] tag a portfolio-ready release
 
 Release history and notable changes are maintained in [CHANGELOG.md](CHANGELOG.md).
