@@ -46,3 +46,9 @@ def test_naive_timestamps_are_interpreted_as_utc():
 def test_window_size_is_bounded(minutes):
     with pytest.raises(ValueError, match="between 1 and 1440"):
         build_time_windows([], window_minutes=minutes)
+
+
+@pytest.mark.parametrize("minutes", [True, False, 5.0, "5", None])
+def test_window_size_requires_an_actual_integer(minutes):
+    with pytest.raises(ValueError, match="must be an integer"):
+        build_time_windows([], window_minutes=minutes)

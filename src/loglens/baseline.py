@@ -23,6 +23,8 @@ def build_time_windows(events: Iterable[LogEvent], *, window_minutes: int = 5) -
     aligned to Unix-epoch boundaries so repeated analyses produce identical
     buckets regardless of input ordering.
     """
+    if not isinstance(window_minutes, int) or isinstance(window_minutes, bool):
+        raise ValueError("window_minutes must be an integer between 1 and 1440")
     if window_minutes < 1 or window_minutes > 1440:
         raise ValueError("window_minutes must be between 1 and 1440")
 

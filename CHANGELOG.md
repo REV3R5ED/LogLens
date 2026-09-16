@@ -15,6 +15,7 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 - Text parsing now recognizes explicit logfmt-style `ts=<ISO-8601>`, `timestamp=<ISO-8601>`, and `time=<ISO-8601>` fields so structured text logs can participate in time-window baselines without treating unrelated timestamp-like fields as event time.
 
 ### Changed
+- Time-window baseline sizing now requires an actual integer from 1 to 1440 minutes; booleans, floats, strings, and null-like values fail clearly before aggregation instead of relying on Python coercion or comparison behavior.
 - Anomaly thresholds now require actual integer values in programmatic use; floats, non-finite numbers, booleans, and strings are rejected before analysis so scoring remains deterministic and configuration mistakes fail clearly.
 - Repeated-message prevalence scoring now uses the same source-and-severity scope as repetition detection, so unrelated services or different-severity traffic cannot dilute a concentrated signal.
 - Repeated-message detection now also scopes identical text by normalized severity level, preventing mixed INFO/WARN/ERROR events with the same message from being combined into a misleading repetition finding.
