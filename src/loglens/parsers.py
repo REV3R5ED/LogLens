@@ -40,7 +40,7 @@ def parse_json_line(line: str, *, source: str | None = None) -> LogEvent:
 
 
 def parse_text_line(line: str, *, source: str | None = None) -> LogEvent:
-    """Normalize an unstructured text line and infer an explicit level token."""
+    """Normalize text and infer an explicit level plus a leading ISO timestamp."""
     message = line.rstrip("\r\n")
     tokens = message.replace("[", " ").replace("]", " ").replace(":", " ").split()
     level = "UNKNOWN"
@@ -49,7 +49,13 @@ def parse_text_line(line: str, *, source: str | None = None) -> LogEvent:
         if candidate in _LEVELS:
             level = candidate
             break
-    return LogEvent(message=message, level=level, source=source)
+
+    # A large class of application logs begins with an ISO-8601 timestamp.
+    # Parse only the leading whitespace-delimited token to avoid guessing at
+    # arbitrary dates embedded in message content.
+    first_token = message.lstrip().split(maxsplit=1)[0] if message.strip() else ""
+    timestamp = _timestamp(first_token)
+    return LogEvent(message=message, level=level, timestamp=timestamp, source=source)
 
 
 def parse_line(line: str, *, source: str | None = None, format: str = "auto") -> LogEvent:
