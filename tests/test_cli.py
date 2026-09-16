@@ -1,3 +1,5 @@
+import csv
+import io
 import json
 
 import pytest
@@ -50,3 +52,69 @@ def test_json_report_can_include_time_window_baseline(tmp_path, capsys):
     assert baseline["timestamped_events"] == 2
     assert baseline["windows"][0]["events"] == 2
     assert baseline["windows"][0]["error_events"] == 1
+
+
+def test_text_output_reports_filters_findings_and_baseline(tmp_path, capsys):
+    log = tmp_path / "events.jsonl"
+    log.write_text(
+        '{"timestamp":"2026-09-15T10:01:00Z","level":"ERROR","message":"database unavailable"}\n'
+        '{"timestamp":"2026-09-15T10:02:00Z","level":"ERROR","message":"database unavailable"}\n'
+        '{"timestamp":"2026-09-15T10:03:00Z","level":"INFO","message":"healthy"}\n',
+        encoding="utf-8",
+    )
+    exit_code = main([
+        "analyze", str(log), "--format", "json", "--level", "ERROR",
+        "--error-threshold", "2", "--repeat-threshold", "2", "--window-minutes", "5",
+    ])
+    assert exit_code == 0
+    output = capsys.readouterr().out
+    assert "Input: 3 | Matched: 2 | Parse errors: 0" in output
+    assert "Time windows: 1 x 5m | Timestamped: 2" in output
+    assert "elevated-errors" in output
+    assert "repeated-message" in output
+
+
+def test_csv_output_is_parseable_and_preserves_report_sections(tmp_path, capsys):
+    log = tmp_path / "app.log"
+    log.write_text("ERROR disk full\nERROR disk full\n", encoding="utf-8")
+    exit_code = main([
+        "analyze", str(log), "--error-threshold", "2", "--repeat-threshold", "2", "--csv",
+    ])
+    assert exit_code == 0
+    rows = list(csv.DictReader(io.StringIO(capsys.readouterr().out)))
+    assert rows
+    assert {row["record_type"] for row in rows} >= {"summary", "detection_config", "finding"}
+    assert {row["name"] for row in rows if row["record_type"] == "finding"} == {
+        "elevated-errors", "repeated-message",
+    }
+
+
+def test_strict_json_parse_errors_return_nonzero_but_emit_report(tmp_path, capsys):
+    log = tmp_path / "events.jsonl"
+    log.write_text(
+        '{"level":"INFO","message":"valid"}\n'
+        '{not valid json}\n',
+        encoding="utf-8",
+    )
+    exit_code = main(["analyze", str(log), "--format", "json", "--json"])
+    assert exit_code == 2
+    report = json.loads(capsys.readouterr().out)
+    assert report["input_events"] == 2
+    assert report["matched_events"] == 1
+    assert report["parse_errors"] == 1
+
+
+def test_missing_input_file_returns_operational_error(tmp_path, capsys):
+    missing = tmp_path / "missing.log"
+    exit_code = main(["analyze", str(missing)])
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert captured.out == ""
+    assert "loglens:" in captured.err
+    assert str(missing) in captured.err
+
+
+def test_json_and_csv_are_mutually_exclusive():
+    with pytest.raises(SystemExit) as exc:
+        build_parser().parse_args(["analyze", "app.log", "--json", "--csv"])
+    assert exc.value.code == 2
