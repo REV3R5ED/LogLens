@@ -10,12 +10,28 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}
 authors = [{name = "REV3R5ED"}]
+keywords = ["cybersecurity", "defensive-security", "log-analysis", "monitoring", "incident-response"]
 classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Information Technology",
   "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Security",
   "Topic :: System :: Logging",
   "Topic :: System :: Monitoring",
 ]
+
+[project.urls]
+Homepage = "https://github.com/REV3R5ED/LogLens"
+Repository = "https://github.com/REV3R5ED/LogLens"
+Issues = "https://github.com/REV3R5ED/LogLens/issues"
+Changelog = "https://github.com/REV3R5ED/LogLens/blob/main/CHANGELOG.md"
 
 [project.scripts]
 loglens = "loglens.cli:main"
