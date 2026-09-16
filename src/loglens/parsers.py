@@ -81,18 +81,30 @@ def _text_level(token: str) -> str:
     return "UNKNOWN"
 
 
-def parse_text_line(line: str, *, source: str | None = None) -> LogEvent:
-    """Normalize text and infer an explicit canonical level plus a leading ISO timestamp."""
-    message = line.rstrip("\r\n")
-    tokens = message.replace("[", " ").replace("]", " ").replace(":", " ").split()
-    level = "UNKNOWN"
+def _logfmt_timestamp(tokens: list[str]) -> datetime | None:
+    """Parse an explicit logfmt timestamp field without guessing unrelated values."""
     for token in tokens:
+        key, separator, value = token.partition("=")
+        if separator and key.strip().lower() in {"ts", "timestamp", "time"}:
+            parsed = _timestamp(value.strip("[],'\""))
+            if parsed is not None:
+                return parsed
+    return None
+
+
+def parse_text_line(line: str, *, source: str | None = None) -> LogEvent:
+    """Normalize text and infer explicit severity and ISO timestamp metadata."""
+    message = line.rstrip("\r\n")
+    raw_tokens = message.split()
+    level_tokens = message.replace("[", " ").replace("]", " ").replace(":", " ").split()
+    level = "UNKNOWN"
+    for token in level_tokens:
         candidate = _text_level(token)
         if candidate != "UNKNOWN":
             level = candidate
             break
 
-    timestamp = _leading_text_timestamp(message)
+    timestamp = _leading_text_timestamp(message) or _logfmt_timestamp(raw_tokens)
     return LogEvent(message=message, level=level, timestamp=timestamp, source=source)
 
 
