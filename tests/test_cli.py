@@ -4,7 +4,15 @@ import json
 
 import pytest
 
+from loglens import __version__
 from loglens.cli import build_parser, main
+
+
+def test_cli_version_matches_runtime_package_version(capsys):
+    with pytest.raises(SystemExit) as exc:
+        build_parser().parse_args(["--version"])
+    assert exc.value.code == 0
+    assert capsys.readouterr().out.strip() == f"loglens {__version__}"
 
 
 def test_detection_threshold_flags_are_parsed():
@@ -83,8 +91,6 @@ def test_csv_output_is_parseable_and_preserves_report_sections(tmp_path, capsys)
     assert exit_code == 0
     rows = list(csv.DictReader(io.StringIO(capsys.readouterr().out)))
     assert rows
-    # The reusable CSV serializer exposes detection configuration as stable
-    # long-form `config` records; keep the CLI contract aligned with it.
     assert {row["record_type"] for row in rows} >= {"summary", "config", "finding"}
     assert {row["name"] for row in rows if row["record_type"] == "config"} == {
         "error_threshold", "repeat_threshold",
