@@ -31,7 +31,9 @@ def report_to_csv(report: Mapping[str, Any]) -> str:
     including formula prefixes hidden behind leading whitespace.
     """
     output = io.StringIO(newline="")
-    writer = csv.writer(output, lineterminator="\n")
+    # Use the RFC 4180 record terminator so csv.writer treats both CR and LF as
+    # characters that require quoting when they occur inside untrusted fields.
+    writer = csv.writer(output, lineterminator="\r\n")
     writer.writerow(("record_type", "name", "value", "severity", "score", "message"))
 
     for name in ("source", "input_events", "matched_events", "parse_errors", "events"):
