@@ -7,6 +7,7 @@ import json
 import sys
 from pathlib import Path
 
+from . import __version__
 from .analysis import filter_events, summarize
 from .baseline import build_time_windows
 from .detection import detect_anomalies
@@ -111,6 +112,7 @@ def _analyze(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="loglens", description="Lightweight defensive log analysis")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subparsers = parser.add_subparsers(dest="command", required=True)
     analyze = subparsers.add_parser("analyze", help="summarize a local log file")
     analyze.add_argument("path", type=Path)
