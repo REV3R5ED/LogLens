@@ -20,8 +20,23 @@ def test_json_parser_supports_aliases():
 
 
 def test_json_parser_canonicalizes_common_severity_aliases():
-    assert parse_json_line('{"level":"warning","message":"slow"}').level == "WARN"
-    assert parse_json_line('{"level":"fatal","message":"down"}').level == "CRITICAL"
+    aliases = {
+        "warning": "WARN",
+        "err": "ERROR",
+        "fatal": "CRITICAL",
+        "crit": "CRITICAL",
+        "alert": "CRITICAL",
+        "emerg": "CRITICAL",
+        "emergency": "CRITICAL",
+        "information": "INFO",
+        "informational": "INFO",
+    }
+    for raw, expected in aliases.items():
+        assert parse_json_line(json.dumps({"level": raw, "message": "event"})).level == expected
+
+
+def test_json_parser_trims_severity_whitespace():
+    assert parse_json_line('{"level":"  warning  ","message":"slow"}').level == "WARN"
 
 
 def test_json_parser_rejects_non_object():
@@ -37,7 +52,10 @@ def test_text_parser_detects_explicit_level():
 
 def test_text_parser_canonicalizes_common_severity_aliases():
     assert parse_text_line("WARNING response degraded").level == "WARN"
-    assert parse_text_line("FATAL database unavailable").level == "CRITICAL"
+    assert parse_text_line("ERR request failed").level == "ERROR"
+    assert parse_text_line("CRIT database unavailable").level == "CRITICAL"
+    assert parse_text_line("EMERG service unavailable").level == "CRITICAL"
+    assert parse_text_line("INFORMATIONAL service ready").level == "INFO"
 
 
 def test_text_parser_parses_leading_iso_timestamp():
