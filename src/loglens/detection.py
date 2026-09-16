@@ -59,7 +59,13 @@ def detect_anomalies(
     error_threshold: int = 5,
     repeat_threshold: int = 5,
 ) -> list[Finding]:
-    """Apply small, transparent rules to a finite event collection."""
+    """Apply small, transparent rules to a finite event collection.
+
+    Repeated-message detection is scoped by source when a source is available.
+    This avoids combining identical boilerplate emitted by independent services
+    into one misleading anomaly while retaining legacy behavior for source-less
+    text logs.
+    """
     if error_threshold < 1 or repeat_threshold < 2:
         raise ValueError("thresholds must be positive (repeat_threshold >= 2)")
 
@@ -74,12 +80,21 @@ def detect_anomalies(
             "elevated-errors", _severity(score), "Elevated error-level event count", error_count, score
         ))
 
-    messages = Counter(event.message.strip() for event in materialized if event.message.strip())
-    for message, count in sorted(messages.items()):
+    messages = Counter(
+        (event.source, event.message.strip())
+        for event in materialized
+        if event.message.strip()
+    )
+    for (source, message), count in sorted(messages.items(), key=lambda item: ((item[0][0] or ""), item[0][1])):
         if count >= repeat_threshold:
             score = _score(count, repeat_threshold, total)
+            source_context = f" [{source}]" if source else ""
             findings.append(Finding(
-                "repeated-message", _severity(score), f"Repeated message: {message}", count, score
+                "repeated-message",
+                _severity(score),
+                f"Repeated message{source_context}: {message}",
+                count,
+                score,
             ))
 
     return findings
