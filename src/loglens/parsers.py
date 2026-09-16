@@ -9,7 +9,17 @@ from typing import Any
 from .model import LogEvent
 
 _LEVELS = {"TRACE", "DEBUG", "INFO", "NOTICE", "WARN", "ERROR", "CRITICAL"}
-_LEVEL_ALIASES = {"WARNING": "WARN", "FATAL": "CRITICAL"}
+_LEVEL_ALIASES = {
+    "WARNING": "WARN",
+    "ERR": "ERROR",
+    "FATAL": "CRITICAL",
+    "CRIT": "CRITICAL",
+    "ALERT": "CRITICAL",
+    "EMERG": "CRITICAL",
+    "EMERGENCY": "CRITICAL",
+    "INFORMATION": "INFO",
+    "INFORMATIONAL": "INFO",
+}
 
 
 def _timestamp(value: Any) -> datetime | None:
@@ -22,7 +32,7 @@ def _timestamp(value: Any) -> datetime | None:
 
 
 def _level(value: Any) -> str:
-    candidate = str(value).upper()
+    candidate = str(value).strip().upper()
     return _LEVEL_ALIASES.get(candidate, candidate if candidate in _LEVELS else "UNKNOWN")
 
 
