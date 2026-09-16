@@ -37,6 +37,21 @@ def test_detects_repeated_messages_deterministically():
     assert findings[0].severity == "medium"
 
 
+def test_repeated_messages_are_scoped_by_source():
+    events = (
+        [LogEvent("connection reset", "WARN", source="api") for _ in range(3)]
+        + [LogEvent("connection reset", "WARN", source="worker") for _ in range(3)]
+    )
+    assert detect_anomalies(events, repeat_threshold=5) == []
+
+
+def test_source_context_is_exposed_in_repeated_message_finding():
+    events = [LogEvent("connection reset", "WARN", source="api") for _ in range(5)]
+    finding = detect_anomalies(events)[0]
+    assert finding.message == "Repeated message [api]: connection reset"
+    assert finding.count == 5
+
+
 def test_low_prevalence_threshold_hit_stays_low_severity():
     events = [LogEvent("retry", "WARN") for _ in range(5)] + [
         LogEvent(f"normal {i}", "INFO") for i in range(95)
