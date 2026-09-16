@@ -17,6 +17,9 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 ### Fixed
 - Timestamp-first text logs using the common `YYYY-MM-DD HH:MM:SS` form now preserve their time-of-day (and optional UTC offset) instead of interpreting the leading date alone as midnight.
 
+### Security
+- CSV report serialization now neutralizes untrusted text beginning with spreadsheet formula prefixes (`=`, `+`, `-`, `@`) while preserving numeric values, reducing formula-injection risk when analysts open exported reports in spreadsheet applications.
+
 ### Planned
 - Portfolio-ready tagged release after final CI and documentation review.
 

@@ -93,6 +93,32 @@ def test_report_to_csv_quotes_untrusted_text_safely():
     assert rows[-1]["message"] == "comma, quote \" text"
 
 
+def test_report_to_csv_neutralizes_spreadsheet_formula_prefixes():
+    report = {
+        "source": "=cmd",
+        "events": 4,
+        "levels": {"+WARN": 1},
+        "sources": {"@service": 4},
+        "findings": [{
+            "rule": "-rule", "count": 4, "severity": "low", "score": 50,
+            "message": "=HYPERLINK(\"https://example.invalid\")",
+        }],
+    }
+    rows = list(csv.DictReader(io.StringIO(report_to_csv(report))))
+    assert rows[0]["value"] == "'=cmd"
+    assert next(row for row in rows if row["record_type"] == "level")["name"] == "'+WARN"
+    assert next(row for row in rows if row["record_type"] == "source")["name"] == "'@service"
+    finding = rows[-1]
+    assert finding["name"] == "'-rule"
+    assert finding["message"].startswith("'=HYPERLINK")
+
+
+def test_report_to_csv_does_not_change_numeric_values():
+    report = {"events": -1, "levels": {}, "sources": {}, "findings": []}
+    rows = list(csv.DictReader(io.StringIO(report_to_csv(report))))
+    assert rows[0]["value"] == "-1"
+
+
 def test_report_to_csv_is_deterministic_for_aggregates():
     report = {"events": 2, "levels": {"WARN": 1, "ERROR": 1}, "sources": {"z": 1, "a": 1}, "findings": []}
     rows = list(csv.DictReader(io.StringIO(report_to_csv(report))))
