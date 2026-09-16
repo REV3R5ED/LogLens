@@ -11,6 +11,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
@@ -23,3 +24,23 @@ jobs:
         run: python -m pip install -U pip pytest && python -m pip install -e .
       - name: Test
         run: pytest -q
+      - name: Installed CLI smoke test
+        run: |
+          loglens --help
+          printf '%s\n' '2026-09-16T00:00:00Z INFO service started' > /tmp/loglens-smoke.log
+          loglens analyze /tmp/loglens-smoke.log --format text --json
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Build distribution
+        run: |
+          python -m pip install -U pip build twine
+          python -m build
+      - name: Validate distribution metadata
+        run: python -m twine check dist/*
