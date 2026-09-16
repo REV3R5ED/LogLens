@@ -39,6 +39,22 @@ def parse_json_line(line: str, *, source: str | None = None) -> LogEvent:
     return LogEvent(message=message, level=level, timestamp=timestamp, source=source, fields=fields)
 
 
+def _leading_text_timestamp(message: str) -> datetime | None:
+    """Parse a leading ISO timestamp without guessing at dates later in a message."""
+    parts = message.lstrip().split(maxsplit=2)
+    if not parts:
+        return None
+
+    # Prefer the common ``YYYY-MM-DD HH:MM:SS`` form before trying the first
+    # token alone. Otherwise a valid date token would silently become midnight
+    # and discard the time-of-day that follows it.
+    if len(parts) >= 2:
+        combined = _timestamp(f"{parts[0]}T{parts[1]}")
+        if combined is not None:
+            return combined
+    return _timestamp(parts[0])
+
+
 def parse_text_line(line: str, *, source: str | None = None) -> LogEvent:
     """Normalize text and infer an explicit level plus a leading ISO timestamp."""
     message = line.rstrip("\r\n")
@@ -50,11 +66,7 @@ def parse_text_line(line: str, *, source: str | None = None) -> LogEvent:
             level = candidate
             break
 
-    # A large class of application logs begins with an ISO-8601 timestamp.
-    # Parse only the leading whitespace-delimited token to avoid guessing at
-    # arbitrary dates embedded in message content.
-    first_token = message.lstrip().split(maxsplit=1)[0] if message.strip() else ""
-    timestamp = _timestamp(first_token)
+    timestamp = _leading_text_timestamp(message)
     return LogEvent(message=message, level=level, timestamp=timestamp, source=source)
 
 
