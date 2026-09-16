@@ -27,7 +27,7 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 ### Security
 - Analyst-facing repeated-message findings now escape ASCII control characters in untrusted log messages and source labels, preventing embedded newlines, terminal escape bytes, NULs, and similar controls from altering terminal/report presentation while preserving them as visible escape notation.
 - CSV report serialization now neutralizes untrusted text beginning with spreadsheet formula prefixes (`=`, `+`, `-`, `@`) while preserving numeric values, reducing formula-injection risk when analysts open exported reports in spreadsheet applications.
-- CSV formula-injection protection now also detects dangerous prefixes hidden behind leading spaces, tabs, carriage returns, or newlines while preserving benign whitespace.
+- CSV formula-injection protection now detects dangerous prefixes hidden behind leading ASCII or Unicode whitespace while preserving the original cell text, covering non-breaking, em, narrow no-break, and ideographic spaces in addition to spaces, tabs, carriage returns, and newlines.
 
 ### Planned
 - Portfolio-ready tagged release after final CI and documentation review.
@@ -48,20 +48,5 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 - Reporting is separated from parsing and analysis so machine-readable output can be reused programmatically.
 
 ### Safety
-- Analysis remains read-only and dependency-light.
-- Detection uses visible deterministic thresholds and scoring rather than opaque or offensive behavior.
-- Malformed input is treated as data and never executed.
-
-## [0.1.0]
-
-### Added
-- Installable Python package and `loglens` CLI.
-- Normalized log event model.
-- Text and JSON parsers with automatic format detection.
-- Case-insensitive level/message filtering and reusable aggregation.
-- Explainable elevated-error and repeated-message anomaly rules.
-- JSON summary and CSV report output.
-- Unit tests and GitHub Actions CI.
-
-[Unreleased]: https://github.com/REV3R5ED/LogLens/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/REV3R5ED/LogLens/releases/tag/v0.2.0
+- Read-only local-file analysis only; no network access or state-changing actions.
+- Malformed records are handled deterministically and never interpreted as executable content.
