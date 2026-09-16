@@ -13,7 +13,7 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 
 ### Changed
 - Repeated-message prevalence scoring now uses the matching source's event population, so unrelated services cannot dilute the severity of a concentrated source-local signal.
-- Common severity aliases are canonicalized during parsing (`WARNING` to `WARN`, `FATAL` to `CRITICAL`) across JSON and text inputs, preventing equivalent severities from fragmenting aggregates and anomaly analysis.
+- Severity normalization now trims surrounding whitespace and canonicalizes common application/syslog labels (`WARNING` to `WARN`, `ERR` to `ERROR`, `FATAL`/`CRIT`/`ALERT`/`EMERG`/`EMERGENCY` to `CRITICAL`, and `INFORMATION`/`INFORMATIONAL` to `INFO`) across JSON and text inputs, preventing equivalent severities from fragmenting aggregates and anomaly analysis.
 
 ### Fixed
 - Timestamp-first text logs using the common `YYYY-MM-DD HH:MM:SS` form now preserve their time-of-day (and optional UTC offset) instead of interpreting the leading date alone as midnight.
