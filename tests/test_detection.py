@@ -33,7 +33,7 @@ def test_detects_repeated_messages_deterministically():
     assert len(findings) == 1
     assert findings[0].rule == "repeated-message"
     assert findings[0].count == 5
-    assert findings[0].score == 71
+    assert findings[0].score == 75
     assert findings[0].severity == "medium"
 
 
@@ -71,9 +71,20 @@ def test_repeated_message_prevalence_uses_source_scope():
     assert finding.severity == "medium"
 
 
+def test_repeated_message_prevalence_uses_severity_scope():
+    events = (
+        [LogEvent("connection reset", "WARN", source="api") for _ in range(5)]
+        + [LogEvent(f"normal {i}", "INFO", source="api") for i in range(95)]
+    )
+    finding = detect_anomalies(events)[0]
+    assert finding.rule == "repeated-message"
+    assert finding.score == 75
+    assert finding.severity == "medium"
+
+
 def test_low_prevalence_threshold_hit_stays_low_severity():
     events = [LogEvent("retry", "WARN") for _ in range(5)] + [
-        LogEvent(f"normal {i}", "INFO") for i in range(95)
+        LogEvent(f"normal {i}", "WARN") for i in range(95)
     ]
     finding = detect_anomalies(events)[0]
     assert finding.score == 51

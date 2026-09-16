@@ -63,8 +63,8 @@ def detect_anomalies(
 
     Repeated-message detection is scoped by source and normalized severity level.
     This prevents identical text emitted at different severities from being merged
-    into a misleading repetition signal. Prevalence scoring remains source-local
-    when source metadata is available.
+    into a misleading repetition signal. Prevalence scoring uses that same scope
+    so unrelated severity traffic cannot dilute a concentrated signal.
     """
     if error_threshold < 1 or repeat_threshold < 2:
         raise ValueError("thresholds must be positive (repeat_threshold >= 2)")
@@ -80,17 +80,17 @@ def detect_anomalies(
             "elevated-errors", _severity(score), "Elevated error-level event count", error_count, score
         ))
 
-    source_totals = Counter(event.source for event in materialized)
+    scope_totals = Counter((event.source, event.level.upper()) for event in materialized)
     messages = Counter(
         (event.source, event.level.upper(), event.message.strip())
         for event in materialized
         if event.message.strip()
     )
-    for (source, _level, message), count in sorted(
+    for (source, level, message), count in sorted(
         messages.items(), key=lambda item: ((item[0][0] or ""), item[0][1], item[0][2])
     ):
         if count >= repeat_threshold:
-            score = _score(count, repeat_threshold, source_totals[source])
+            score = _score(count, repeat_threshold, scope_totals[(source, level)])
             source_context = f" [{source}]" if source else ""
             findings.append(Finding(
                 "repeated-message",
