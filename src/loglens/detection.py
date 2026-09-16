@@ -61,10 +61,10 @@ def detect_anomalies(
 ) -> list[Finding]:
     """Apply small, transparent rules to a finite event collection.
 
-    Repeated-message detection is scoped by source when a source is available.
-    Its prevalence score uses the same source scope, preventing unrelated events
-    from other services from diluting an otherwise concentrated local signal.
-    Source-less logs retain the same behavior when analyzed on their own.
+    Repeated-message detection is scoped by source and normalized severity level.
+    This prevents identical text emitted at different severities from being merged
+    into a misleading repetition signal. Prevalence scoring remains source-local
+    when source metadata is available.
     """
     if error_threshold < 1 or repeat_threshold < 2:
         raise ValueError("thresholds must be positive (repeat_threshold >= 2)")
@@ -82,11 +82,13 @@ def detect_anomalies(
 
     source_totals = Counter(event.source for event in materialized)
     messages = Counter(
-        (event.source, event.message.strip())
+        (event.source, event.level.upper(), event.message.strip())
         for event in materialized
         if event.message.strip()
     )
-    for (source, message), count in sorted(messages.items(), key=lambda item: ((item[0][0] or ""), item[0][1])):
+    for (source, _level, message), count in sorted(
+        messages.items(), key=lambda item: ((item[0][0] or ""), item[0][1], item[0][2])
+    ):
         if count >= repeat_threshold:
             score = _score(count, repeat_threshold, source_totals[source])
             source_context = f" [{source}]" if source else ""

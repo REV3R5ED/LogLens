@@ -45,6 +45,14 @@ def test_repeated_messages_are_scoped_by_source():
     assert detect_anomalies(events, repeat_threshold=5) == []
 
 
+def test_repeated_messages_are_scoped_by_severity_level():
+    events = (
+        [LogEvent("request finished", "INFO", source="api") for _ in range(3)]
+        + [LogEvent("request finished", "ERROR", source="api") for _ in range(3)]
+    )
+    assert detect_anomalies(events, error_threshold=10, repeat_threshold=5) == []
+
+
 def test_source_context_is_exposed_in_repeated_message_finding():
     events = [LogEvent("connection reset", "WARN", source="api") for _ in range(5)]
     finding = detect_anomalies(events)[0]
