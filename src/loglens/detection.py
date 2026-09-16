@@ -30,13 +30,7 @@ class Finding:
 
 
 def _score(count: int, threshold: int, total: int) -> int:
-    """Return a bounded 0-100 score from threshold excess and prevalence.
-
-    A finding starts at 50 when it reaches its configured threshold. Up to 25
-    points reflect how far the count exceeds that threshold and up to 25 points
-    reflect how much of the relevant event set the signal represents. This keeps
-    scoring deterministic, bounded, and straightforward to reproduce.
-    """
+    """Return a bounded 0-100 score from threshold excess and prevalence."""
     if total < 1:
         return 0
     excess = max(0, count - threshold)
@@ -51,6 +45,25 @@ def _severity(score: int) -> str:
     if score >= 60:
         return "medium"
     return "low"
+
+
+def _escape_controls(value: str) -> str:
+    """Render ASCII control characters visibly in analyst-facing findings.
+
+    Log messages are untrusted input. Escaping C0 controls and DEL prevents a
+    repeated-message finding from injecting terminal line breaks, cursor/control
+    sequences, or NUL bytes while preserving the underlying signal as readable
+    text. Tabs and newlines are represented explicitly rather than discarded.
+    """
+    parts: list[str] = []
+    for char in value:
+        codepoint = ord(char)
+        if codepoint < 32 or codepoint == 127:
+            escapes = {"\n": r"\n", "\r": r"\r", "\t": r"\t"}
+            parts.append(escapes.get(char, f"\\x{codepoint:02x}"))
+        else:
+            parts.append(char)
+    return "".join(parts)
 
 
 def detect_anomalies(
@@ -98,11 +111,11 @@ def detect_anomalies(
     ):
         if count >= repeat_threshold:
             score = _score(count, repeat_threshold, scope_totals[(source, level)])
-            source_context = f" [{source}]" if source else ""
+            source_context = f" [{_escape_controls(source)}]" if source else ""
             findings.append(Finding(
                 "repeated-message",
                 _severity(score),
-                f"Repeated message{source_context}: {message}",
+                f"Repeated message{source_context}: {_escape_controls(message)}",
                 count,
                 score,
             ))

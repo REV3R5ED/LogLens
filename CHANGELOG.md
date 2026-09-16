@@ -25,6 +25,7 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 - Timestamp-first text logs using the common `YYYY-MM-DD HH:MM:SS` form now preserve their time-of-day (and optional UTC offset) instead of interpreting the leading date alone as midnight.
 
 ### Security
+- Analyst-facing repeated-message findings now escape ASCII control characters in untrusted log messages and source labels, preventing embedded newlines, terminal escape bytes, NULs, and similar controls from altering terminal/report presentation while preserving them as visible escape notation.
 - CSV report serialization now neutralizes untrusted text beginning with spreadsheet formula prefixes (`=`, `+`, `-`, `@`) while preserving numeric values, reducing formula-injection risk when analysts open exported reports in spreadsheet applications.
 - CSV formula-injection protection now also detects dangerous prefixes hidden behind leading spaces, tabs, carriage returns, or newlines while preserving benign whitespace.
 
