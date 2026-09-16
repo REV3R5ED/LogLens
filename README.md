@@ -22,7 +22,8 @@ Current capabilities:
 - analyst-configurable detection thresholds with safe validation
 - deterministic UTC time-window baselines for timestamped events
 - transparent 0-100 anomaly scoring with severity derived from score
-- human-readable, JSON, and CSV summary output with explainable findings
+- reusable deterministic JSON and long-form CSV report serializers
+- CSV preservation of effective detection configuration and time-window baselines
 - automated tests across supported Python versions
 
 ## Quick start
@@ -35,13 +36,13 @@ loglens analyze /path/to/app.log --level ERROR --level WARN
 loglens analyze /path/to/app.log --contains "database" --json
 loglens analyze /path/to/app.log --error-threshold 10 --repeat-threshold 8 --json
 loglens analyze /path/to/events.jsonl --window-minutes 5 --json
-loglens analyze /path/to/app.log --csv > report.csv
+loglens analyze /path/to/events.jsonl --window-minutes 5 --csv > report.csv
 pytest -q
 ```
 
 `--level` can be repeated and combined with `--contains`. Reports distinguish total input records from records matching the active filters, so filtering remains visible and auditable. Detection runs only on the matched event set. `--json` and `--csv` are mutually exclusive report formats.
 
-Detection thresholds can be tuned per analysis with `--error-threshold` and `--repeat-threshold`. The defaults remain 5 and 5. Error thresholds must be at least 1 and repeat thresholds at least 2, preventing nonsensical configurations. JSON reports include the effective `detection_config` so saved results remain reproducible and auditable.
+Detection thresholds can be tuned per analysis with `--error-threshold` and `--repeat-threshold`. The defaults remain 5 and 5. Error thresholds must be at least 1 and repeat thresholds at least 2, preventing nonsensical configurations. Machine-readable reports include the effective detection configuration so saved results remain reproducible and auditable.
 
 ### Time-window baselines
 
@@ -51,9 +52,11 @@ Time windows are descriptive baselines rather than incident verdicts. They provi
 
 ### Anomaly scoring
 
-Every finding now includes a deterministic score from 0 to 100. A rule that reaches its configured threshold starts at 50 points. Up to 25 additional points reflect how far the observed count exceeds the threshold, and up to 25 reflect the finding's prevalence across the matched event set. Scores below 60 are `low`, 60-79 are `medium`, and 80 or above are `high`. This is deliberately simple and explainable: the score is a triage aid, not a probability or incident verdict.
+Every finding includes a deterministic score from 0 to 100. A rule that reaches its configured threshold starts at 50 points. Up to 25 additional points reflect how far the observed count exceeds the threshold, and up to 25 reflect the finding's prevalence across the matched event set. Scores below 60 are `low`, 60-79 are `medium`, and 80 or above are `high`. This is deliberately simple and explainable: the score is a triage aid, not a probability or incident verdict.
 
-JSON and CSV reports preserve the score for downstream review. CSV uses the stable long-form columns `record_type,name,value,severity,score,message`; log-derived commas and quotes are escaped by Python's standard CSV writer.
+### Reusable reports
+
+JSON and CSV output now share reusable serializers in `loglens.reporting`, keeping formatting separate from parsing and detection. JSON is deterministic and human-readable. CSV uses the stable long-form columns `record_type,name,value,severity,score,message`; in addition to summaries, aggregates, and findings, it preserves the effective detection thresholds and time-baseline metadata. Time-window rows carry the window start, event count, error-event count, and a deterministic JSON level distribution so spreadsheet exports do not silently lose baseline context. Log-derived commas and quotes are escaped by Python's standard CSV writer.
 
 Example JSON lines input:
 
@@ -87,11 +90,16 @@ LogLens focuses on detection, troubleshooting, observability, and incident-analy
 - [x] configurable detection rules
 - [x] time-window baselines
 - [x] richer anomaly scoring
-- [ ] reusable report formats
+- [x] reusable report formats
+
+### Release hardening
+- [ ] expand CLI integration coverage
+- [ ] add changelog and release notes
+- [ ] tag a portfolio-ready release
 
 ## Design notes
 
-Parsing is deliberately deterministic and dependency-light. Malformed records do not become executable content, and unknown structured fields are retained rather than silently discarded. Strict JSON mode reports malformed records while automatic mode can safely treat malformed JSON-looking lines as plain text. Filtering is read-only and explicit; aggregation and detection operate only on normalized events selected by the analyst. Detection rules use visible thresholds and a documented scoring formula so findings are reproducible and easy to audit. Machine-readable reports record effective configuration and finding scores. Time-window aggregation is descriptive, UTC-normalized, and excludes untimestamped records without discarding them from other analysis. Report serialization is kept separate from analysis so additional safe output formats can be added without changing detection behavior.
+Parsing is deliberately deterministic and dependency-light. Malformed records do not become executable content, and unknown structured fields are retained rather than silently discarded. Strict JSON mode reports malformed records while automatic mode can safely treat malformed JSON-looking lines as plain text. Filtering is read-only and explicit; aggregation and detection operate only on normalized events selected by the analyst. Detection rules use visible thresholds and a documented scoring formula so findings are reproducible and easy to audit. Machine-readable reports record effective configuration and finding scores. Time-window aggregation is descriptive, UTC-normalized, and excludes untimestamped records without discarding them from other analysis. Report serialization is kept separate from analysis and preserves configuration and baseline context across reusable JSON and CSV formats.
 
 ## Development
 

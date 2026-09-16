@@ -1,7 +1,15 @@
 import csv
 import io
+import json
 
-from loglens.reporting import report_to_csv
+from loglens.reporting import report_to_csv, report_to_json
+
+
+def test_report_to_json_is_deterministic_and_readable():
+    report = {"z": 1, "a": {"b": 2}}
+    rendered = report_to_json(report)
+    assert rendered == '{\n  "a": {\n    "b": 2\n  },\n  "z": 1\n}'
+    assert json.loads(rendered) == report
 
 
 def test_report_to_csv_preserves_summary_aggregates_and_findings():
@@ -35,6 +43,40 @@ def test_report_to_csv_preserves_summary_aggregates_and_findings():
     assert rows[-1]["name"] == "elevated-errors"
     assert rows[-1]["severity"] == "medium"
     assert rows[-1]["score"] == "75"
+
+
+def test_report_to_csv_preserves_config_and_time_baseline():
+    report = {
+        "events": 3,
+        "levels": {},
+        "sources": {},
+        "detection_config": {"repeat_threshold": 5, "error_threshold": 3},
+        "time_baseline": {
+            "window_minutes": 5,
+            "timestamped_events": 3,
+            "windows": [{
+                "start": "2026-09-15T10:00:00+00:00",
+                "end": "2026-09-15T10:05:00+00:00",
+                "events": 3,
+                "error_events": 2,
+                "levels": {"WARN": 1, "ERROR": 2},
+            }],
+        },
+        "findings": [],
+    }
+
+    rows = list(csv.DictReader(io.StringIO(report_to_csv(report))))
+    assert [(row["name"], row["value"]) for row in rows if row["record_type"] == "config"] == [
+        ("error_threshold", "3"), ("repeat_threshold", "5")
+    ]
+    assert {row["name"] for row in rows if row["record_type"] == "baseline"} == {
+        "window_minutes", "timestamped_events"
+    }
+    window = next(row for row in rows if row["record_type"] == "window")
+    assert window["name"] == "2026-09-15T10:00:00+00:00"
+    assert window["value"] == "3"
+    assert window["score"] == "2"
+    assert json.loads(window["message"]) == {"ERROR": 2, "WARN": 1}
 
 
 def test_report_to_csv_quotes_untrusted_text_safely():

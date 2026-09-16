@@ -11,7 +11,7 @@ from .analysis import filter_events, summarize
 from .baseline import build_time_windows
 from .detection import detect_anomalies
 from .parsers import parse_line
-from .reporting import report_to_csv
+from .reporting import report_to_csv, report_to_json
 
 
 def _positive_int(value: str) -> int:
@@ -85,7 +85,7 @@ def _analyze(
             "windows": build_time_windows(matched, window_minutes=window_minutes),
         }
     if output_format == "json":
-        print(json.dumps(report, indent=2, sort_keys=True))
+        print(report_to_json(report))
     elif output_format == "csv":
         print(report_to_csv(report), end="")
     else:
