@@ -31,7 +31,11 @@ def report_to_csv(report: Mapping[str, Any]) -> str:
     including formula prefixes hidden behind leading whitespace.
     """
     output = io.StringIO(newline="")
-    writer = csv.writer(output, lineterminator="\n")
+    # CRLF makes both carriage-return and newline characters part of the CSV
+    # record terminator, so csv.writer quotes either character when it appears
+    # inside untrusted fields. This keeps embedded CR/LF data parseable across
+    # supported Python versions while remaining RFC 4180-friendly.
+    writer = csv.writer(output, lineterminator="\r\n")
     writer.writerow(("record_type", "name", "value", "severity", "score", "message"))
 
     for name in ("source", "input_events", "matched_events", "parse_errors", "events"):
