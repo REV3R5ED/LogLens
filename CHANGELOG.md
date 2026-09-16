@@ -11,6 +11,9 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 - Bracketed leading ISO-8601 timestamps are recognized in both compact (`[YYYY-MM-DDTHH:MM:SSZ]`) and split (`[YYYY-MM-DD HH:MM:SS]`) forms, improving compatibility with common application-log layouts.
 - Repeated-message anomaly detection now scopes identical messages by event source when source metadata is available, reducing cross-service false positives and exposing the source in finding context.
 
+### Changed
+- Repeated-message prevalence scoring now uses the matching source's event population, so unrelated services cannot dilute the severity of a concentrated source-local signal.
+
 ### Fixed
 - Timestamp-first text logs using the common `YYYY-MM-DD HH:MM:SS` form now preserve their time-of-day (and optional UTC offset) instead of interpreting the leading date alone as midnight.
 

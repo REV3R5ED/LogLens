@@ -34,7 +34,7 @@ def _score(count: int, threshold: int, total: int) -> int:
 
     A finding starts at 50 when it reaches its configured threshold. Up to 25
     points reflect how far the count exceeds that threshold and up to 25 points
-    reflect how much of the matched event set the signal represents. This keeps
+    reflect how much of the relevant event set the signal represents. This keeps
     scoring deterministic, bounded, and straightforward to reproduce.
     """
     if total < 1:
@@ -62,9 +62,9 @@ def detect_anomalies(
     """Apply small, transparent rules to a finite event collection.
 
     Repeated-message detection is scoped by source when a source is available.
-    This avoids combining identical boilerplate emitted by independent services
-    into one misleading anomaly while retaining legacy behavior for source-less
-    text logs.
+    Its prevalence score uses the same source scope, preventing unrelated events
+    from other services from diluting an otherwise concentrated local signal.
+    Source-less logs retain the same behavior when analyzed on their own.
     """
     if error_threshold < 1 or repeat_threshold < 2:
         raise ValueError("thresholds must be positive (repeat_threshold >= 2)")
@@ -80,6 +80,7 @@ def detect_anomalies(
             "elevated-errors", _severity(score), "Elevated error-level event count", error_count, score
         ))
 
+    source_totals = Counter(event.source for event in materialized)
     messages = Counter(
         (event.source, event.message.strip())
         for event in materialized
@@ -87,7 +88,7 @@ def detect_anomalies(
     )
     for (source, message), count in sorted(messages.items(), key=lambda item: ((item[0][0] or ""), item[0][1])):
         if count >= repeat_threshold:
-            score = _score(count, repeat_threshold, total)
+            score = _score(count, repeat_threshold, source_totals[source])
             source_context = f" [{source}]" if source else ""
             findings.append(Finding(
                 "repeated-message",

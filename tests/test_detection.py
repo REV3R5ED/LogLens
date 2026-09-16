@@ -52,6 +52,17 @@ def test_source_context_is_exposed_in_repeated_message_finding():
     assert finding.count == 5
 
 
+def test_repeated_message_prevalence_uses_source_scope():
+    events = (
+        [LogEvent("connection reset", "WARN", source="api") for _ in range(5)]
+        + [LogEvent(f"normal {i}", "INFO", source="worker") for i in range(95)]
+    )
+    finding = detect_anomalies(events)[0]
+    assert finding.rule == "repeated-message"
+    assert finding.score == 75
+    assert finding.severity == "medium"
+
+
 def test_low_prevalence_threshold_hit_stays_low_severity():
     events = [LogEvent("retry", "WARN") for _ in range(5)] + [
         LogEvent(f"normal {i}", "INFO") for i in range(95)
