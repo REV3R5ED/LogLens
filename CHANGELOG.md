@@ -48,5 +48,20 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 - Reporting is separated from parsing and analysis so machine-readable output can be reused programmatically.
 
 ### Safety
-- Read-only local-file analysis only; no network access or state-changing actions.
-- Malformed records are handled deterministically and never interpreted as executable content.
+- Analysis remains read-only and dependency-light.
+- Detection uses visible deterministic thresholds and scoring rather than opaque or offensive behavior.
+- Malformed input is treated as data and never executed.
+
+## [0.1.0]
+
+### Added
+- Installable Python package and `loglens` CLI.
+- Normalized log event model.
+- Text and JSON parsers with automatic format detection.
+- Case-insensitive level/message filtering and reusable aggregation.
+- Explainable elevated-error and repeated-message anomaly rules.
+- JSON summary and CSV report output.
+- Unit tests and GitHub Actions CI.
+
+[Unreleased]: https://github.com/REV3R5ED/LogLens/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/REV3R5ED/LogLens/releases/tag/v0.2.0
