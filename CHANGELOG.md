@@ -7,6 +7,7 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 ## [Unreleased]
 
 ### Added
+- JSON parsing now recognizes OpenTelemetry-style `severity_text` and `body` aliases while preserving canonical `level`/`message` precedence and retaining unrelated telemetry context such as trace identifiers.
 - JSON parsing now recognizes nested ECS `log.level` objects in addition to the existing flat alias, while preserving canonical/flat-field precedence and retaining the full nested `log` object as analyst context.
 - JSON parsing now recognizes common flat ECS/logging aliases: `@timestamp` and `ts` for event time and `log.level` for severity, while preserving canonical-field precedence and retaining unrelated structured context.
 - Leading ISO-8601 timestamp recognition for unstructured text logs, allowing common timestamp-first application logs to participate in deterministic time-window baselines without guessing dates embedded later in messages.
@@ -56,7 +57,7 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 ## [0.1.0]
 
 ### Added
-- Installable Python package and `loglens` CLI.
+- Installable Python package and CLI.
 - Normalized log event model.
 - Text and JSON parsers with automatic format detection.
 - Case-insensitive level/message filtering and reusable aggregation.
