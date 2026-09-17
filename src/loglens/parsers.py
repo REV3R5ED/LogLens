@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from .model import LogEvent
@@ -28,6 +28,22 @@ def _timestamp(value: Any) -> datetime | None:
     try:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
+        return None
+
+
+def _unix_nano_timestamp(value: Any) -> datetime | None:
+    """Convert an OpenTelemetry Unix-nanosecond timestamp to UTC safely."""
+    if isinstance(value, bool) or not isinstance(value, (str, int)):
+        return None
+    try:
+        nanoseconds = int(value)
+    except ValueError:
+        return None
+    if nanoseconds < 0 or (isinstance(value, str) and str(nanoseconds) != value.strip()):
+        return None
+    try:
+        return datetime.fromtimestamp(nanoseconds / 1_000_000_000, tz=timezone.utc)
+    except (OverflowError, OSError, ValueError):
         return None
 
 
@@ -70,10 +86,19 @@ def parse_json_line(line: str, *, source: str | None = None) -> LogEvent:
     if raw_level is None:
         raw_level = _nested_present(value, ("log", "level"), "UNKNOWN")
     level = _level(raw_level)
-    timestamp = _timestamp(_first_present(value, ("timestamp", "time", "@timestamp", "ts", "observed_timestamp", "observedTimestamp")))
+
+    timestamp = _timestamp(_first_present(value, ("timestamp", "time", "@timestamp", "ts")))
+    if timestamp is None:
+        timestamp = _unix_nano_timestamp(value.get("timeUnixNano"))
+    if timestamp is None:
+        timestamp = _timestamp(_first_present(value, ("observed_timestamp", "observedTimestamp")))
+    if timestamp is None:
+        timestamp = _unix_nano_timestamp(value.get("observedTimeUnixNano"))
+
     reserved = {
         "message", "msg", "body", "level", "severity", "log.level", "severity_text", "severityText",
-        "timestamp", "time", "@timestamp", "ts", "observed_timestamp", "observedTimestamp",
+        "timestamp", "time", "@timestamp", "ts", "timeUnixNano", "observed_timestamp", "observedTimestamp",
+        "observedTimeUnixNano",
     }
     fields = {key: item for key, item in value.items() if key not in reserved}
     return LogEvent(message=message, level=level, timestamp=timestamp, source=source, fields=fields)
