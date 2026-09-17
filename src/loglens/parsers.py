@@ -44,6 +44,16 @@ def _first_present(record: dict[str, Any], keys: tuple[str, ...], default: Any =
     return default
 
 
+def _nested_present(record: dict[str, Any], path: tuple[str, ...], default: Any = None) -> Any:
+    """Return a nested value only when every path component is explicitly present."""
+    value: Any = record
+    for key in path:
+        if not isinstance(value, dict) or key not in value:
+            return default
+        value = value[key]
+    return value
+
+
 def parse_json_line(line: str, *, source: str | None = None) -> LogEvent:
     """Parse one JSON object into a normalized event.
 
@@ -55,7 +65,10 @@ def parse_json_line(line: str, *, source: str | None = None) -> LogEvent:
         raise ValueError("JSON log record must be an object")
 
     message = str(_first_present(value, ("message", "msg"), ""))
-    level = _level(_first_present(value, ("level", "severity", "log.level"), "UNKNOWN"))
+    raw_level = _first_present(value, ("level", "severity", "log.level"))
+    if raw_level is None:
+        raw_level = _nested_present(value, ("log", "level"), "UNKNOWN")
+    level = _level(raw_level)
     timestamp = _timestamp(_first_present(value, ("timestamp", "time", "@timestamp", "ts")))
     reserved = {"message", "msg", "level", "severity", "log.level", "timestamp", "time", "@timestamp", "ts"}
     fields = {key: item for key, item in value.items() if key not in reserved}
