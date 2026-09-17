@@ -1,0 +1,87 @@
+"""Explainable per-source health analysis for normalized defensive log events."""
+
+from __future__ import annotations
+
+from collections import Counter, defaultdict
+from dataclasses import dataclass
+from typing import Iterable
+
+from .model import LogEvent
+
+_ERROR_LEVELS = {"ERROR", "CRITICAL", "FATAL"}
+
+
+@dataclass(frozen=True, slots=True)
+class SourceHealth:
+    """Deterministic health summary for one logical log source."""
+
+    source: str
+    events: int
+    error_events: int
+    error_rate: float
+    levels: dict[str, int]
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "source": self.source,
+            "events": self.events,
+            "error_events": self.error_events,
+            "error_rate": self.error_rate,
+            "levels": self.levels,
+        }
+
+
+def summarize_sources(events: Iterable[LogEvent]) -> list[SourceHealth]:
+    """Return stable per-source event/error distributions.
+
+    Events without source metadata are grouped under ``<unknown>`` rather than
+    discarded. Error rate is a deterministic fraction in the inclusive 0..1
+    range. The function is read-only and performs no network or filesystem I/O.
+    """
+    grouped: dict[str, list[LogEvent]] = defaultdict(list)
+    for event in events:
+        grouped[event.source or "<unknown>"].append(event)
+
+    summaries: list[SourceHealth] = []
+    for source in sorted(grouped):
+        source_events = grouped[source]
+        levels = Counter(event.level.upper() for event in source_events)
+        error_events = sum(levels[level] for level in _ERROR_LEVELS)
+        total = len(source_events)
+        summaries.append(
+            SourceHealth(
+                source=source,
+                events=total,
+                error_events=error_events,
+                error_rate=error_events / total,
+                levels=dict(sorted(levels.items())),
+            )
+        )
+    return summaries
+
+
+def concentrated_error_sources(
+    events: Iterable[LogEvent],
+    *,
+    min_errors: int = 3,
+    min_error_rate: float = 0.5,
+) -> list[SourceHealth]:
+    """Return sources whose error volume *and* error rate cross both gates.
+
+    Requiring an absolute count and a rate avoids flagging a source because of a
+    single isolated failure while still surfacing concentrated defensive signals.
+    """
+    if not isinstance(min_errors, int) or isinstance(min_errors, bool) or min_errors < 1:
+        raise ValueError("min_errors must be an integer >= 1")
+    if (
+        not isinstance(min_error_rate, (int, float))
+        or isinstance(min_error_rate, bool)
+        or not 0 <= min_error_rate <= 1
+    ):
+        raise ValueError("min_error_rate must be a number between 0 and 1")
+
+    return [
+        summary
+        for summary in summarize_sources(events)
+        if summary.error_events >= min_errors and summary.error_rate >= min_error_rate
+    ]
