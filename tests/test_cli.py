@@ -41,7 +41,12 @@ def test_json_report_records_effective_detection_config(tmp_path, capsys):
     ])
     assert exit_code == 0
     report = json.loads(capsys.readouterr().out)
-    assert report["detection_config"] == {"error_threshold": 2, "repeat_threshold": 2}
+    assert report["detection_config"] == {
+        "error_threshold": 2,
+        "repeat_threshold": 2,
+        "burst_threshold": 5,
+        "burst_window_seconds": 60,
+    }
     assert {finding["rule"] for finding in report["findings"]} == {"elevated-errors", "repeated-message"}
 
 
@@ -93,7 +98,7 @@ def test_csv_output_is_parseable_and_preserves_report_sections(tmp_path, capsys)
     assert rows
     assert {row["record_type"] for row in rows} >= {"summary", "config", "finding"}
     assert {row["name"] for row in rows if row["record_type"] == "config"} == {
-        "error_threshold", "repeat_threshold",
+        "error_threshold", "repeat_threshold", "burst_threshold", "burst_window_seconds",
     }
     assert {row["name"] for row in rows if row["record_type"] == "finding"} == {
         "elevated-errors", "repeated-message",

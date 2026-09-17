@@ -44,6 +44,8 @@ def _analyze(
     contains: str | None,
     error_threshold: int,
     repeat_threshold: int,
+    burst_threshold: int,
+    burst_window_seconds: int,
     window_minutes: int | None,
     fail_on_finding: bool,
 ) -> int:
@@ -67,6 +69,8 @@ def _analyze(
             matched,
             error_threshold=error_threshold,
             repeat_threshold=repeat_threshold,
+            burst_threshold=burst_threshold,
+            burst_window_seconds=burst_window_seconds,
         )
     ]
     report = summarize(matched).to_dict()
@@ -79,6 +83,8 @@ def _analyze(
         "detection_config": {
             "error_threshold": error_threshold,
             "repeat_threshold": repeat_threshold,
+            "burst_threshold": burst_threshold,
+            "burst_window_seconds": burst_window_seconds,
         },
         "findings": findings,
     })
@@ -136,6 +142,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="identical matched messages required for a repeated-message finding (default: 5, minimum: 2)",
     )
     analyze.add_argument(
+        "--burst-threshold", type=_repeat_threshold, default=5,
+        help="timestamped errors from one source required for an error-burst finding (default: 5, minimum: 2)",
+    )
+    analyze.add_argument(
+        "--burst-window-seconds", type=_positive_int, default=60,
+        help="sliding window used for error-burst detection in seconds (default: 60)",
+    )
+    analyze.add_argument(
         "--window-minutes", type=_window_minutes,
         help="include deterministic UTC time-window baselines (1-1440 minutes; timestamped events only)",
     )
@@ -157,8 +171,9 @@ def main(argv: list[str] | None = None) -> int:
             return _analyze(
                 args.path, args.format, args.output_format,
                 set(args.levels) if args.levels else None, args.contains,
-                args.error_threshold, args.repeat_threshold, args.window_minutes,
-                args.fail_on_finding,
+                args.error_threshold, args.repeat_threshold,
+                args.burst_threshold, args.burst_window_seconds,
+                args.window_minutes, args.fail_on_finding,
             )
         except OSError as exc:
             print(f"loglens: {exc}", file=sys.stderr)
