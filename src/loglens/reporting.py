@@ -15,29 +15,15 @@ def report_to_json(report: Mapping[str, Any]) -> str:
 
 
 def _csv_safe(value: Any) -> Any:
-    """Neutralize spreadsheet formula prefixes in untrusted text cells.
-
-    Spreadsheet applications may ignore visually insignificant leading Unicode
-    whitespace before interpreting a formula prefix. Strip Unicode whitespace
-    only for detection; preserve the original cell text when neutralizing it.
-    """
+    """Neutralize spreadsheet formula prefixes in untrusted text cells."""
     if isinstance(value, str) and value.lstrip().startswith(("=", "+", "-", "@")):
         return "'" + value
     return value
 
 
 def report_to_csv(report: Mapping[str, Any]) -> str:
-    """Serialize an analysis report as deterministic, spreadsheet-friendly CSV.
-
-    The long-form schema intentionally carries summary data, effective detection
-    configuration, time-window baselines, aggregates, and findings without
-    requiring consumers to understand LogLens' internal Python objects. Text
-    cells that could be interpreted as spreadsheet formulas are neutralized,
-    including formula prefixes hidden behind leading Unicode whitespace.
-    """
+    """Serialize an analysis report as deterministic, spreadsheet-friendly CSV."""
     output = io.StringIO(newline="")
-    # Use the RFC 4180 record terminator so csv.writer treats both CR and LF as
-    # characters that require quoting when they occur inside untrusted fields.
     writer = csv.writer(output, lineterminator="\r\n")
     writer.writerow(("record_type", "name", "value", "severity", "score", "message"))
 
@@ -57,12 +43,8 @@ def report_to_csv(report: Mapping[str, Any]) -> str:
         for window in windows:
             message = json.dumps(window.get("levels", {}), sort_keys=True, separators=(",", ":"))
             writer.writerow((
-                "window",
-                _csv_safe(window.get("start", "")),
-                _csv_safe(window.get("events", "")),
-                "",
-                _csv_safe(window.get("error_events", "")),
-                _csv_safe(message),
+                "window", _csv_safe(window.get("start", "")), _csv_safe(window.get("events", "")),
+                "", _csv_safe(window.get("error_events", "")), _csv_safe(message),
             ))
 
     for level, count in sorted(report.get("levels", {}).items()):
@@ -70,14 +52,19 @@ def report_to_csv(report: Mapping[str, Any]) -> str:
     for source, count in sorted(report.get("sources", {}).items()):
         writer.writerow(("source", _csv_safe(source), _csv_safe(count), "", "", ""))
 
+    source_health: Sequence[Mapping[str, Any]] = report.get("source_health", ())
+    for source in source_health:
+        levels = json.dumps(source.get("levels", {}), sort_keys=True, separators=(",", ":"))
+        writer.writerow((
+            "source_health", _csv_safe(source.get("source", "")), _csv_safe(source.get("events", "")),
+            _csv_safe(source.get("error_rate", "")), _csv_safe(source.get("error_events", "")), _csv_safe(levels),
+        ))
+
     findings: Sequence[Mapping[str, Any]] = report.get("findings", ())
     for finding in findings:
         writer.writerow((
-            "finding",
-            _csv_safe(finding.get("rule", "")),
-            _csv_safe(finding.get("count", "")),
-            _csv_safe(finding.get("severity", "")),
-            _csv_safe(finding.get("score", "")),
+            "finding", _csv_safe(finding.get("rule", "")), _csv_safe(finding.get("count", "")),
+            _csv_safe(finding.get("severity", "")), _csv_safe(finding.get("score", "")),
             _csv_safe(finding.get("message", "")),
         ))
 

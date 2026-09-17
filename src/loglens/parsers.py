@@ -79,6 +79,14 @@ def _nested_present(record: dict[str, Any], path: tuple[str, ...], default: Any 
     return value
 
 
+def _source(record: dict[str, Any], fallback: str | None) -> str | None:
+    """Return a conservative logical source name, falling back to provenance."""
+    value = _first_present(record, ("source", "service", "component", "logger"))
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return fallback
+
+
 def parse_json_line(line: str, *, source: str | None = None) -> LogEvent:
     """Parse one JSON object into a normalized event."""
     value = json.loads(line)
@@ -91,9 +99,9 @@ def parse_json_line(line: str, *, source: str | None = None) -> LogEvent:
     if timestamp is None: timestamp = _unix_nano_timestamp(value.get("timeUnixNano"))
     if timestamp is None: timestamp = _timestamp(_first_present(value, ("observed_timestamp", "observedTimestamp")))
     if timestamp is None: timestamp = _unix_nano_timestamp(value.get("observedTimeUnixNano"))
-    reserved = {"message", "msg", "body", "level", "severity", "log.level", "severity_text", "severityText", "severityNumber", "timestamp", "time", "@timestamp", "ts", "timeUnixNano", "observed_timestamp", "observedTimestamp", "observedTimeUnixNano"}
+    reserved = {"message", "msg", "body", "level", "severity", "log.level", "severity_text", "severityText", "severityNumber", "timestamp", "time", "@timestamp", "ts", "timeUnixNano", "observed_timestamp", "observedTimestamp", "observedTimeUnixNano", "source", "service", "component", "logger"}
     fields = {key: item for key, item in value.items() if key not in reserved}
-    return LogEvent(message=message, level=level, timestamp=timestamp, source=source, fields=fields)
+    return LogEvent(message=message, level=level, timestamp=timestamp, source=_source(value, source), fields=fields)
 
 
 def _leading_text_timestamp(message: str) -> datetime | None:
