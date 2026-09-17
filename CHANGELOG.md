@@ -27,7 +27,7 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 ### Security
 - Analyst-facing repeated-message findings now escape ASCII control characters in untrusted log messages and source labels, preventing embedded newlines, terminal escape bytes, NULs, and similar controls from altering terminal/report presentation while preserving them as visible escape notation.
 - CSV report serialization now neutralizes untrusted text beginning with spreadsheet formula prefixes (`=`, `+`, `-`, `@`) while preserving numeric values, reducing formula-injection risk when analysts open exported reports in spreadsheet applications.
-- CSV formula-injection protection now also detects dangerous prefixes hidden behind leading spaces, tabs, carriage returns, or newlines while preserving benign whitespace.
+- CSV formula-injection protection now detects dangerous prefixes hidden behind leading ASCII or Unicode whitespace while preserving the original cell text, covering non-breaking, em, narrow no-break, and ideographic spaces in addition to spaces, tabs, carriage returns, and newlines.
 
 ### Planned
 - Portfolio-ready tagged release after final CI and documentation review.

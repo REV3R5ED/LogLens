@@ -15,8 +15,13 @@ def report_to_json(report: Mapping[str, Any]) -> str:
 
 
 def _csv_safe(value: Any) -> Any:
-    """Neutralize spreadsheet formula prefixes in untrusted text cells."""
-    if isinstance(value, str) and value.lstrip(" \t\r\n").startswith(("=", "+", "-", "@")):
+    """Neutralize spreadsheet formula prefixes in untrusted text cells.
+
+    Spreadsheet applications may ignore visually insignificant leading Unicode
+    whitespace before interpreting a formula prefix. Strip Unicode whitespace
+    only for detection; preserve the original cell text when neutralizing it.
+    """
+    if isinstance(value, str) and value.lstrip().startswith(("=", "+", "-", "@")):
         return "'" + value
     return value
 
@@ -28,7 +33,7 @@ def report_to_csv(report: Mapping[str, Any]) -> str:
     configuration, time-window baselines, aggregates, and findings without
     requiring consumers to understand LogLens' internal Python objects. Text
     cells that could be interpreted as spreadsheet formulas are neutralized,
-    including formula prefixes hidden behind leading whitespace.
+    including formula prefixes hidden behind leading Unicode whitespace.
     """
     output = io.StringIO(newline="")
     # Use the RFC 4180 record terminator so csv.writer treats both CR and LF as
