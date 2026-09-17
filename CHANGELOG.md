@@ -7,6 +7,7 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 ## [Unreleased]
 
 ### Added
+- JSON parsing now recognizes OpenTelemetry `timeUnixNano` and `observedTimeUnixNano` timestamps supplied as integer or decimal-string nanoseconds, converting them to UTC while preserving canonical event-time precedence and rejecting malformed values safely.
 - JSON parsing now recognizes OpenTelemetry JSON camelCase `severityText` and `observedTimestamp` aliases, while preserving existing canonical/snake_case precedence and retaining unrelated telemetry context.
 - JSON parsing now recognizes OpenTelemetry-style `observed_timestamp` as an ISO-8601 event-time fallback, while preserving canonical timestamp precedence so telemetry exports can participate in deterministic time-window analysis.
 - JSON parsing now recognizes OpenTelemetry-style `severity_text` and `body` aliases while preserving canonical `level`/`message` precedence and retaining unrelated telemetry context such as trace identifiers.
