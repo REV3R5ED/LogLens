@@ -12,7 +12,7 @@ Current capabilities:
 
 - installable Python package and `loglens` CLI
 - normalized `LogEvent` records
-- JSON log parsing with common field aliases
+- JSON log parsing with common field aliases, including OpenTelemetry `severityText`/`severityNumber` and Unix-nanosecond timestamps
 - unstructured text parsing with level detection and leading ISO-8601 timestamp recognition
 - automatic JSON/text detection
 - preservation of unknown JSON fields for later analysis
@@ -45,6 +45,10 @@ pytest -q
 
 Detection thresholds can be tuned per analysis with `--error-threshold` and `--repeat-threshold`. The defaults remain 5 and 5. Error thresholds must be at least 1 and repeat thresholds at least 2, preventing nonsensical configurations. Machine-readable reports include the effective detection configuration so saved results remain reproducible and auditable.
 
+### OpenTelemetry JSON compatibility
+
+LogLens recognizes common OpenTelemetry LogRecord fields without adding an SDK dependency. `severityText` is preferred when present; otherwise `severityNumber` values 1-24 are mapped by the standard TRACE, DEBUG, INFO, WARN, ERROR, and FATAL ranges, with the FATAL range normalized to LogLens `CRITICAL`. Invalid or out-of-range numbers remain `UNKNOWN` rather than being guessed. `timeUnixNano` and `observedTimeUnixNano` are converted to UTC timestamps, while unrelated telemetry context remains available in `fields`.
+
 ### Time-window baselines
 
 Use `--window-minutes N` to group matched, timestamped events into fixed UTC windows from 1 minute through 24 hours. Each window records its start/end, total event count, error-level count, and deterministic level distribution. Windows align to Unix-epoch boundaries, making repeated analyses comparable even when input ordering changes. Events without a parsed timestamp remain part of the normal summary and detection flow but are explicitly excluded from the baseline; the report records `timestamped_events` so that coverage is visible. Offset-less ISO timestamps are interpreted as UTC for deterministic cross-system behavior.
@@ -64,10 +68,10 @@ JSON and CSV output share reusable serializers in `loglens.reporting`, keeping f
 Example JSON lines input:
 
 ```json
-{"timestamp":"2026-09-15T10:00:00Z","level":"error","message":"disk full","host":"web-1"}
+{"timeUnixNano":"1789466400000000000","severityNumber":17,"body":"disk full","host":"web-1"}
 ```
 
-LogLens normalizes the timestamp, level, message and source while retaining fields such as `host` for future filtering and detection rules.
+LogLens normalizes the timestamp, severity, message and source while retaining fields such as `host` for future filtering and detection rules.
 
 ## Built-in anomaly rules
 
@@ -99,6 +103,7 @@ LogLens focuses on detection, troubleshooting, observability, and incident-analy
 - [x] expand CLI integration coverage
 - [x] add changelog and release notes
 - [x] parse leading ISO timestamps from common text logs
+- [x] normalize OpenTelemetry severity numbers
 - [ ] tag a portfolio-ready release
 
 Release history and notable changes are maintained in [CHANGELOG.md](CHANGELOG.md).
