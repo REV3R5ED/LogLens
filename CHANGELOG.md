@@ -36,16 +36,33 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 ## [0.2.0] - 2026-09-15
 
 ### Added
-- Initial installable Python package and `loglens` CLI.
-- Normalized log-event model with preservation of unknown structured fields.
-- Deterministic JSON, text, and automatic line parsing.
-- Case-insensitive level/message filtering and reusable level/source aggregation.
-- Explainable elevated-error and repeated-message anomaly rules with configurable thresholds.
-- Deterministic 0-100 finding scores and low/medium/high severity mapping.
-- Fixed UTC time-window baselines with timestamp-coverage reporting.
-- Deterministic JSON and long-form CSV serializers that preserve effective detection configuration and baseline metadata.
-- CLI integration coverage for report formats, filters, malformed strict-JSON input, and missing-file behavior.
-- GitHub Actions CI across supported Python versions.
+- Analyst-configurable error and repeated-message detection thresholds with validation.
+- Deterministic UTC time-window baselines with timestamp coverage metadata.
+- Transparent 0-100 anomaly scoring and score-derived low/medium/high severity.
+- Reusable deterministic JSON and long-form CSV report serializers.
+- CSV preservation of detection configuration and time-window baseline context.
+- CLI integration coverage for text, JSON and CSV reports, filtering, malformed strict-JSON input, and missing-file behavior.
+- Optional `--fail-on-finding` CI gate that preserves the full report and returns exit code 3 when anomaly findings are emitted; parse errors retain precedence with exit code 2.
 
-### Defensive scope
-- Detection and reporting are read-only; LogLens does not include exploitation, credential theft, persistence, or offensive payload functionality.
+### Changed
+- Detection and reporting operate on the explicitly filtered event set and retain effective analysis configuration for reproducibility.
+- Reporting is separated from parsing and analysis so machine-readable output can be reused programmatically.
+
+### Safety
+- Analysis remains read-only and dependency-light.
+- Detection uses visible deterministic thresholds and scoring rather than opaque or offensive behavior.
+- Malformed input is treated as data and never executed.
+
+## [0.1.0]
+
+### Added
+- Installable Python package and `loglens` CLI.
+- Normalized log event model.
+- Text and JSON parsers with automatic format detection.
+- Case-insensitive level/message filtering and reusable aggregation.
+- Explainable elevated-error and repeated-message anomaly rules.
+- JSON summary and CSV report output.
+- Unit tests and GitHub Actions CI.
+
+[Unreleased]: https://github.com/REV3R5ED/LogLens/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/REV3R5ED/LogLens/releases/tag/v0.2.0
