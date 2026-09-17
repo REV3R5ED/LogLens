@@ -1,4 +1,4 @@
-from loglens.analysis import filter_events, summarize
+from loglens.analysis import filter_events, summarize, summarize_sources
 from loglens.model import LogEvent
 
 
@@ -32,3 +32,34 @@ def test_summarize_counts_levels_and_sources():
 
 def test_summarize_empty_stream():
     assert summarize([]).to_dict() == {"events": 0, "levels": {}, "sources": {}}
+
+
+def test_summarize_sources_exposes_error_concentration_deterministically():
+    events = [
+        LogEvent("failed", "error", source="worker"),
+        LogEvent("ready", "INFO", source="api"),
+        LogEvent("fatal", "FATAL", source="worker"),
+        LogEvent("retry", "WARN", source="worker"),
+    ]
+    assert [item.to_dict() for item in summarize_sources(events)] == [
+        {
+            "source": "api", "events": 1, "error_events": 0,
+            "error_rate": 0.0, "levels": {"INFO": 1},
+        },
+        {
+            "source": "worker", "events": 3, "error_events": 2,
+            "error_rate": 0.6667, "levels": {"ERROR": 1, "FATAL": 1, "WARN": 1},
+        },
+    ]
+
+
+def test_summarize_sources_keeps_missing_sources_visible():
+    events = [LogEvent("failed", "CRITICAL"), LogEvent("ok", "INFO", source="   ")]
+    assert [item.to_dict() for item in summarize_sources(events)] == [{
+        "source": "<unknown>", "events": 2, "error_events": 1,
+        "error_rate": 0.5, "levels": {"CRITICAL": 1, "INFO": 1},
+    }]
+
+
+def test_summarize_sources_empty_stream_is_empty():
+    assert summarize_sources([]) == []
