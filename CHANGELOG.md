@@ -7,6 +7,7 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 ## [Unreleased]
 
 ### Added
+- JSON parsing now recognizes OpenTelemetry JSON camelCase `severityText` and `observedTimestamp` aliases, while preserving existing canonical/snake_case precedence and retaining unrelated telemetry context.
 - JSON parsing now recognizes OpenTelemetry-style `observed_timestamp` as an ISO-8601 event-time fallback, while preserving canonical timestamp precedence so telemetry exports can participate in deterministic time-window analysis.
 - JSON parsing now recognizes OpenTelemetry-style `severity_text` and `body` aliases while preserving canonical `level`/`message` precedence and retaining unrelated telemetry context such as trace identifiers.
 - JSON parsing now recognizes nested ECS `log.level` objects in addition to the existing flat alias, while preserving canonical/flat-field precedence and retaining the full nested `log` object as analyst context.
