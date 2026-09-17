@@ -66,14 +66,14 @@ def parse_json_line(line: str, *, source: str | None = None) -> LogEvent:
         raise ValueError("JSON log record must be an object")
 
     message = str(_first_present(value, ("message", "msg", "body"), ""))
-    raw_level = _first_present(value, ("level", "severity", "log.level", "severity_text"))
+    raw_level = _first_present(value, ("level", "severity", "log.level", "severity_text", "severityText"))
     if raw_level is None:
         raw_level = _nested_present(value, ("log", "level"), "UNKNOWN")
     level = _level(raw_level)
-    timestamp = _timestamp(_first_present(value, ("timestamp", "time", "@timestamp", "ts", "observed_timestamp")))
+    timestamp = _timestamp(_first_present(value, ("timestamp", "time", "@timestamp", "ts", "observed_timestamp", "observedTimestamp")))
     reserved = {
-        "message", "msg", "body", "level", "severity", "log.level", "severity_text",
-        "timestamp", "time", "@timestamp", "ts", "observed_timestamp",
+        "message", "msg", "body", "level", "severity", "log.level", "severity_text", "severityText",
+        "timestamp", "time", "@timestamp", "ts", "observed_timestamp", "observedTimestamp",
     }
     fields = {key: item for key, item in value.items() if key not in reserved}
     return LogEvent(message=message, level=level, timestamp=timestamp, source=source, fields=fields)
