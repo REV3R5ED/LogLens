@@ -52,6 +52,19 @@ def _otel_severity_number(value: Any) -> str:
     return "UNKNOWN"
 
 
+def _message(value: Any) -> str:
+    """Normalize plain messages and scalar OpenTelemetry AnyValue bodies."""
+    if not isinstance(value, dict): return str(value)
+    scalar_keys = ("stringValue", "intValue", "doubleValue", "boolValue")
+    present = [key for key in scalar_keys if key in value]
+    if len(present) == 1:
+        scalar = value[present[0]]
+        if scalar is None: return ""
+        if isinstance(scalar, bool): return "true" if scalar else "false"
+        if isinstance(scalar, (str, int, float)): return str(scalar)
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
 def _first_present(record: dict[str, Any], keys: tuple[str, ...], default: Any = None) -> Any:
     for key in keys:
         if key in record: return record[key]
@@ -70,7 +83,7 @@ def parse_json_line(line: str, *, source: str | None = None) -> LogEvent:
     """Parse one JSON object into a normalized event."""
     value = json.loads(line)
     if not isinstance(value, dict): raise ValueError("JSON log record must be an object")
-    message = str(_first_present(value, ("message", "msg", "body"), ""))
+    message = _message(_first_present(value, ("message", "msg", "body"), ""))
     raw_level = _first_present(value, ("level", "severity", "log.level", "severity_text", "severityText"))
     if raw_level is None: raw_level = _nested_present(value, ("log", "level"), None)
     level = _level(raw_level) if raw_level is not None else _otel_severity_number(value.get("severityNumber"))
