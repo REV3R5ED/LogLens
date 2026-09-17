@@ -26,6 +26,22 @@ def test_json_parser_supports_opentelemetry_aliases():
     assert event.fields == {"trace_id": "abc123"}
 
 
+def test_json_parser_supports_opentelemetry_camelcase_aliases():
+    event = parse_json_line('{"observedTimestamp":"2026-09-15T10:00:00Z","severityText":"warning","body":"request degraded","traceId":"abc123"}')
+    assert event.level == "WARN"
+    assert event.message == "request degraded"
+    assert event.timestamp is not None
+    assert event.timestamp.isoformat() == "2026-09-15T10:00:00+00:00"
+    assert event.fields == {"traceId": "abc123"}
+
+
+def test_json_parser_prefers_existing_aliases_over_opentelemetry_camelcase_aliases():
+    event = parse_json_line('{"severity_text":"error","severityText":"info","observed_timestamp":"2026-09-15T10:00:00Z","observedTimestamp":"2026-09-16T10:00:00Z","body":"event"}')
+    assert event.level == "ERROR"
+    assert event.timestamp is not None
+    assert event.timestamp.isoformat() == "2026-09-15T10:00:00+00:00"
+
+
 def test_json_parser_supports_opentelemetry_observed_timestamp():
     event = parse_json_line('{"observed_timestamp":"2026-09-15T10:00:00Z","severity_text":"info","body":"received"}')
     assert event.timestamp is not None
