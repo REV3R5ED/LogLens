@@ -19,6 +19,19 @@ def test_json_parser_supports_aliases():
     assert event.message == "slow response"
 
 
+def test_json_parser_supports_opentelemetry_aliases():
+    event = parse_json_line('{"severity_text":"warning","body":"request degraded","trace_id":"abc123"}')
+    assert event.level == "WARN"
+    assert event.message == "request degraded"
+    assert event.fields == {"trace_id": "abc123"}
+
+
+def test_json_parser_prefers_canonical_fields_over_opentelemetry_aliases():
+    event = parse_json_line('{"level":"error","severity_text":"info","message":"canonical","body":"otel"}')
+    assert event.level == "ERROR"
+    assert event.message == "canonical"
+
+
 def test_json_parser_supports_ecs_style_flat_aliases():
     event = parse_json_line('{"@timestamp":"2026-09-15T10:00:00Z","log.level":"warning","message":"slow response","service.name":"api"}')
     assert event.level == "WARN"
@@ -42,17 +55,7 @@ def test_json_parser_prefers_canonical_fields_over_aliases():
 
 
 def test_json_parser_canonicalizes_common_severity_aliases():
-    aliases = {
-        "warning": "WARN",
-        "err": "ERROR",
-        "fatal": "CRITICAL",
-        "crit": "CRITICAL",
-        "alert": "CRITICAL",
-        "emerg": "CRITICAL",
-        "emergency": "CRITICAL",
-        "information": "INFO",
-        "informational": "INFO",
-    }
+    aliases = {"warning":"WARN","err":"ERROR","fatal":"CRITICAL","crit":"CRITICAL","alert":"CRITICAL","emerg":"CRITICAL","emergency":"CRITICAL","information":"INFO","informational":"INFO"}
     for raw, expected in aliases.items():
         assert parse_json_line(json.dumps({"level": raw, "message": "event"})).level == expected
 
