@@ -58,19 +58,23 @@ def parse_json_line(line: str, *, source: str | None = None) -> LogEvent:
     """Parse one JSON object into a normalized event.
 
     Unknown keys are preserved in ``fields`` so analysis never silently loses
-    useful context. Common ECS/logging aliases are normalized explicitly.
+    useful context. Common ECS, OpenTelemetry, and logging aliases are normalized
+    explicitly.
     """
     value = json.loads(line)
     if not isinstance(value, dict):
         raise ValueError("JSON log record must be an object")
 
-    message = str(_first_present(value, ("message", "msg"), ""))
-    raw_level = _first_present(value, ("level", "severity", "log.level"))
+    message = str(_first_present(value, ("message", "msg", "body"), ""))
+    raw_level = _first_present(value, ("level", "severity", "log.level", "severity_text"))
     if raw_level is None:
         raw_level = _nested_present(value, ("log", "level"), "UNKNOWN")
     level = _level(raw_level)
     timestamp = _timestamp(_first_present(value, ("timestamp", "time", "@timestamp", "ts")))
-    reserved = {"message", "msg", "level", "severity", "log.level", "timestamp", "time", "@timestamp", "ts"}
+    reserved = {
+        "message", "msg", "body", "level", "severity", "log.level", "severity_text",
+        "timestamp", "time", "@timestamp", "ts",
+    }
     fields = {key: item for key, item in value.items() if key not in reserved}
     return LogEvent(message=message, level=level, timestamp=timestamp, source=source, fields=fields)
 
