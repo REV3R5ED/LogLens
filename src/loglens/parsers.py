@@ -70,10 +70,10 @@ def parse_json_line(line: str, *, source: str | None = None) -> LogEvent:
     if raw_level is None:
         raw_level = _nested_present(value, ("log", "level"), "UNKNOWN")
     level = _level(raw_level)
-    timestamp = _timestamp(_first_present(value, ("timestamp", "time", "@timestamp", "ts")))
+    timestamp = _timestamp(_first_present(value, ("timestamp", "time", "@timestamp", "ts", "observed_timestamp")))
     reserved = {
         "message", "msg", "body", "level", "severity", "log.level", "severity_text",
-        "timestamp", "time", "@timestamp", "ts",
+        "timestamp", "time", "@timestamp", "ts", "observed_timestamp",
     }
     fields = {key: item for key, item in value.items() if key not in reserved}
     return LogEvent(message=message, level=level, timestamp=timestamp, source=source, fields=fields)
