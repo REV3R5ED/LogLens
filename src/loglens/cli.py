@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .analysis import filter_events, summarize
+from .analysis import filter_events, summarize, summarize_sources
 from .baseline import build_time_windows
 from .detection import detect_anomalies
 from .parsers import parse_line
@@ -75,6 +75,7 @@ def _analyze(
         "input_events": total_input,
         "matched_events": len(matched),
         "parse_errors": parse_errors,
+        "source_health": [summary.to_dict() for summary in summarize_sources(matched)],
         "detection_config": {
             "error_threshold": error_threshold,
             "repeat_threshold": repeat_threshold,
@@ -96,6 +97,13 @@ def _analyze(
         print(f"Input: {total_input} | Matched: {len(matched)} | Parse errors: {parse_errors}")
         for level, count in report["levels"].items():
             print(f"{level:>8}: {count}")
+        if report["source_health"]:
+            print("Source health:")
+            for source in report["source_health"]:
+                print(
+                    f"  {source['source']}: {source['events']} events | "
+                    f"{source['error_events']} errors | {source['error_rate']:.1%} error rate"
+                )
         if "time_baseline" in report:
             baseline = report["time_baseline"]
             print(f"Time windows: {len(baseline['windows'])} x {window_minutes}m | Timestamped: {baseline['timestamped_events']}")
