@@ -17,7 +17,7 @@ Current capabilities:
 - automatic JSON/text detection
 - preservation of unknown JSON fields for later analysis
 - case-insensitive level and message filtering
-- reusable level/source aggregation
+- reusable level/source aggregation and per-source health summaries
 - deterministic anomaly rules for elevated errors and repeated messages
 - analyst-configurable detection thresholds with safe validation
 - deterministic UTC time-window baselines for timestamped events
@@ -48,6 +48,10 @@ Detection thresholds can be tuned per analysis with `--error-threshold` and `--r
 ### OpenTelemetry JSON compatibility
 
 LogLens recognizes common OpenTelemetry LogRecord fields without adding an SDK dependency. `severityText` is preferred when present; otherwise `severityNumber` values 1-24 are mapped by the standard TRACE, DEBUG, INFO, WARN, ERROR, and FATAL ranges, with the FATAL range normalized to LogLens `CRITICAL`. Invalid or out-of-range numbers remain `UNKNOWN` rather than being guessed. `timeUnixNano` and `observedTimeUnixNano` are converted to UTC timestamps, while unrelated telemetry context remains available in `fields`.
+
+### Source health summaries
+
+`loglens.analysis.summarize_sources()` provides a reusable per-source view of event volume, error-level event count, error rate, and level distribution. This makes it easier to distinguish a broadly noisy dataset from errors concentrated in one service or component without turning the observation into an incident verdict. Missing or blank source values remain visible as `<unknown>`, error rates are deterministic to four decimal places, and results are sorted by source for stable downstream reporting.
 
 ### Time-window baselines
 

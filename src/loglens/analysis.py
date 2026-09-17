@@ -31,6 +31,26 @@ class AnalysisSummary:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class SourceSummary:
+    """Deterministic health-oriented summary for one event source."""
+
+    source: str
+    events: int
+    error_events: int
+    error_rate: float
+    levels: dict[str, int]
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "source": self.source,
+            "events": self.events,
+            "error_events": self.error_events,
+            "error_rate": self.error_rate,
+            "levels": self.levels,
+        }
+
+
 def filter_events(
     events: Iterable[LogEvent],
     *,
@@ -55,3 +75,32 @@ def summarize(events: Iterable[LogEvent]) -> AnalysisSummary:
     for event in events:
         summary.add(event)
     return summary
+
+
+def summarize_sources(events: Iterable[LogEvent]) -> list[SourceSummary]:
+    """Summarize volume and error concentration for each normalized source.
+
+    Missing/blank source values are retained as ``<unknown>`` so incomplete
+    telemetry stays visible rather than silently disappearing from analysis.
+    ERROR, CRITICAL, and FATAL are treated as error-level events. Results are
+    sorted by source for reproducible JSON/reporting use.
+    """
+    grouped: dict[str, Counter[str]] = {}
+    for event in events:
+        source = event.source.strip() if event.source and event.source.strip() else "<unknown>"
+        levels = grouped.setdefault(source, Counter())
+        levels[event.level.upper()] += 1
+
+    summaries: list[SourceSummary] = []
+    for source in sorted(grouped):
+        levels = grouped[source]
+        total = sum(levels.values())
+        error_events = sum(levels[level] for level in ("ERROR", "CRITICAL", "FATAL"))
+        summaries.append(SourceSummary(
+            source=source,
+            events=total,
+            error_events=error_events,
+            error_rate=round(error_events / total, 4),
+            levels=dict(sorted(levels.items())),
+        ))
+    return summaries
