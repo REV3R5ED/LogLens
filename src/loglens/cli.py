@@ -42,6 +42,7 @@ def _analyze(
     output_format: str,
     levels: set[str] | None,
     contains: str | None,
+    sources: set[str] | None,
     error_threshold: int,
     repeat_threshold: int,
     burst_threshold: int,
@@ -62,7 +63,7 @@ def _analyze(
             except (ValueError, json.JSONDecodeError):
                 parse_errors += 1
 
-    matched = filter_events(events, levels=levels, contains=contains)
+    matched = filter_events(events, levels=levels, contains=contains, sources=sources)
     findings = [
         finding.to_dict()
         for finding in detect_anomalies(
@@ -134,6 +135,10 @@ def build_parser() -> argparse.ArgumentParser:
     analyze.add_argument("--level", action="append", dest="levels", help="include only this level; repeat for multiple levels")
     analyze.add_argument("--contains", help="include only events whose message contains this text")
     analyze.add_argument(
+        "--source", action="append", dest="sources",
+        help="include only this logical source; repeat for multiple sources (case-insensitive)",
+    )
+    analyze.add_argument(
         "--error-threshold", type=_positive_int, default=5,
         help="matched ERROR/CRITICAL/FATAL events required for an elevated-errors finding (default: 5)",
     )
@@ -171,6 +176,7 @@ def main(argv: list[str] | None = None) -> int:
             return _analyze(
                 args.path, args.format, args.output_format,
                 set(args.levels) if args.levels else None, args.contains,
+                set(args.sources) if args.sources else None,
                 args.error_threshold, args.repeat_threshold,
                 args.burst_threshold, args.burst_window_seconds,
                 args.window_minutes, args.fail_on_finding,
