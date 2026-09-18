@@ -14,6 +14,10 @@ _LEVEL_ALIASES = {
     "ALERT": "CRITICAL", "EMERG": "CRITICAL", "EMERGENCY": "CRITICAL",
     "INFORMATION": "INFO", "INFORMATIONAL": "INFO",
 }
+_JOURNAL_PRIORITY_LEVELS = {
+    0: "CRITICAL", 1: "CRITICAL", 2: "CRITICAL", 3: "ERROR",
+    4: "WARN", 5: "NOTICE", 6: "INFO", 7: "DEBUG",
+}
 
 
 def _timestamp(value: Any) -> datetime | None:
@@ -32,9 +36,28 @@ def _unix_nano_timestamp(value: Any) -> datetime | None:
     except (OverflowError, OSError, ValueError): return None
 
 
+def _unix_micro_timestamp(value: Any) -> datetime | None:
+    """Convert systemd journal microseconds-since-epoch to UTC safely."""
+    if isinstance(value, bool) or not isinstance(value, (str, int)): return None
+    try: microseconds = int(value)
+    except ValueError: return None
+    if microseconds < 0 or (isinstance(value, str) and str(microseconds) != value.strip()): return None
+    try: return datetime.fromtimestamp(microseconds / 1_000_000, tz=timezone.utc)
+    except (OverflowError, OSError, ValueError): return None
+
+
 def _level(value: Any) -> str:
     candidate = str(value).strip().upper()
     return _LEVEL_ALIASES.get(candidate, candidate if candidate in _LEVELS else "UNKNOWN")
+
+
+def _journal_priority(value: Any) -> str:
+    """Normalize syslog PRIORITY values used by journalctl JSON output."""
+    if isinstance(value, bool) or not isinstance(value, (str, int)): return "UNKNOWN"
+    try: priority = int(value)
+    except ValueError: return "UNKNOWN"
+    if isinstance(value, str) and str(priority) != value.strip(): return "UNKNOWN"
+    return _JOURNAL_PRIORITY_LEVELS.get(priority, "UNKNOWN")
 
 
 def _otel_severity_number(value: Any) -> str:
@@ -121,6 +144,8 @@ def _source(record: dict[str, Any], fallback: str | None) -> str | None:
     if isinstance(value, str) and value.strip(): return value.strip()
     value = _otel_resource_service_name(record)
     if value is not None: return value
+    value = _first_present(record, ("_SYSTEMD_UNIT", "SYSLOG_IDENTIFIER", "_COMM"))
+    if isinstance(value, str) and value.strip(): return value.strip()
     return fallback
 
 
@@ -128,15 +153,21 @@ def parse_json_line(line: str, *, source: str | None = None) -> LogEvent:
     """Parse one JSON object into a normalized event."""
     value = json.loads(line)
     if not isinstance(value, dict): raise ValueError("JSON log record must be an object")
-    message = _message(_first_present(value, ("message", "msg", "body"), ""))
+    message = _message(_first_present(value, ("message", "msg", "body", "MESSAGE"), ""))
     raw_level = _first_present(value, ("level", "severity", "log.level", "severity_text", "severityText"))
     if raw_level is None: raw_level = _nested_present(value, ("log", "level"), None)
-    level = _level(raw_level) if raw_level is not None else _otel_severity_number(value.get("severityNumber"))
+    if raw_level is not None:
+        level = _level(raw_level)
+    elif "severityNumber" in value:
+        level = _otel_severity_number(value.get("severityNumber"))
+    else:
+        level = _journal_priority(value.get("PRIORITY"))
     timestamp = _timestamp(_first_present(value, ("timestamp", "time", "@timestamp", "ts")))
     if timestamp is None: timestamp = _unix_nano_timestamp(value.get("timeUnixNano"))
     if timestamp is None: timestamp = _timestamp(_first_present(value, ("observed_timestamp", "observedTimestamp")))
     if timestamp is None: timestamp = _unix_nano_timestamp(value.get("observedTimeUnixNano"))
-    reserved = {"message", "msg", "body", "level", "severity", "log.level", "severity_text", "severityText", "severityNumber", "timestamp", "time", "@timestamp", "ts", "timeUnixNano", "observed_timestamp", "observedTimestamp", "observedTimeUnixNano", "source", "service", "component", "logger"}
+    if timestamp is None: timestamp = _unix_micro_timestamp(value.get("__REALTIME_TIMESTAMP"))
+    reserved = {"message", "msg", "body", "MESSAGE", "level", "severity", "log.level", "severity_text", "severityText", "severityNumber", "PRIORITY", "timestamp", "time", "@timestamp", "ts", "timeUnixNano", "observed_timestamp", "observedTimestamp", "observedTimeUnixNano", "__REALTIME_TIMESTAMP", "source", "service", "component", "logger"}
     fields = {key: item for key, item in value.items() if key not in reserved}
     return LogEvent(message=message, level=level, timestamp=timestamp, source=_source(value, source), fields=fields)
 
