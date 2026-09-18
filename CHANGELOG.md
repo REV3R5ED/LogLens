@@ -7,6 +7,7 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 ## [Unreleased]
 
 ### Added
+- `--max-parse-errors N` lets analysts tolerate a small, explicit number of malformed records in noisy strict-JSON inputs while keeping the observed count and configured budget visible in reports; the default remains strict at zero.
 - CSV reporting now escapes ASCII control characters in untrusted text cells while retaining spreadsheet-formula neutralization, keeping each logical record on one physical row for safer ingestion by spreadsheets and downstream tooling.
 - Error-burst anomaly scoring now measures prevalence against all events from the same logical source rather than only timestamped error events, making burst severity consistent with source-scoped analysis and reducing inflated scores in otherwise healthy services.
 - Elevated error-count anomaly detection is now scoped by logical event source, preventing unrelated services from combining into a false threshold hit and reporting source context with source-local prevalence scoring.
