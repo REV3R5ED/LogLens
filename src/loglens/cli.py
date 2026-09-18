@@ -15,6 +15,9 @@ from .parsers import parse_line
 from .reporting import report_to_csv, report_to_json
 
 
+_SEVERITY_RANK = {"low": 1, "medium": 2, "high": 3}
+
+
 def _positive_int(value: str) -> int:
     parsed = int(value)
     if parsed < 1:
@@ -48,7 +51,7 @@ def _analyze(
     burst_threshold: int,
     burst_window_seconds: int,
     window_minutes: int | None,
-    fail_on_finding: bool,
+    fail_on_severity: str | None,
 ) -> int:
     events = []
     total_input = 0
@@ -120,8 +123,10 @@ def _analyze(
                 print(f"  [{finding['severity']}] {finding['rule']}: {finding['message']} ({finding['count']})")
     if parse_errors:
         return 2
-    if fail_on_finding and findings:
-        return 3
+    if fail_on_severity is not None:
+        threshold = _SEVERITY_RANK[fail_on_severity]
+        if any(_SEVERITY_RANK.get(finding["severity"], 0) >= threshold for finding in findings):
+            return 3
     return 0
 
 
@@ -158,9 +163,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--window-minutes", type=_window_minutes,
         help="include deterministic UTC time-window baselines (1-1440 minutes; timestamped events only)",
     )
-    analyze.add_argument(
-        "--fail-on-finding", action="store_true",
+    failure = analyze.add_mutually_exclusive_group()
+    failure.add_argument(
+        "--fail-on-finding", action="store_const", const="low", dest="fail_on_severity",
         help="return exit code 3 when one or more anomaly findings are emitted",
+    )
+    failure.add_argument(
+        "--fail-on-severity", choices=("low", "medium", "high"),
+        help="return exit code 3 when a finding reaches this severity or higher",
     )
     output = analyze.add_mutually_exclusive_group()
     output.add_argument("--json", action="store_const", const="json", dest="output_format", help="emit a JSON report")
@@ -179,7 +189,7 @@ def main(argv: list[str] | None = None) -> int:
                 set(args.sources) if args.sources else None,
                 args.error_threshold, args.repeat_threshold,
                 args.burst_threshold, args.burst_window_seconds,
-                args.window_minutes, args.fail_on_finding,
+                args.window_minutes, args.fail_on_severity,
             )
         except OSError as exc:
             print(f"loglens: {exc}", file=sys.stderr)

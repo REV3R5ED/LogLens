@@ -174,3 +174,36 @@ def test_parse_error_takes_precedence_over_finding_exit_code(tmp_path, capsys):
     report = json.loads(capsys.readouterr().out)
     assert report["parse_errors"] == 1
     assert report["findings"]
+
+
+def test_fail_on_severity_ignores_findings_below_threshold(tmp_path, capsys):
+    log = tmp_path / "app.log"
+    log.write_text("ERROR disk full\nERROR disk full\n", encoding="utf-8")
+    exit_code = main([
+        "analyze", str(log), "--error-threshold", "2", "--repeat-threshold", "2",
+        "--fail-on-severity", "high", "--json",
+    ])
+    assert exit_code == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["findings"]
+    assert all(finding["severity"] != "high" for finding in report["findings"])
+
+
+def test_fail_on_severity_returns_three_at_or_above_threshold(tmp_path, capsys):
+    log = tmp_path / "app.log"
+    log.write_text("ERROR disk full\n" * 10, encoding="utf-8")
+    exit_code = main([
+        "analyze", str(log), "--error-threshold", "2", "--repeat-threshold", "2",
+        "--fail-on-severity", "medium", "--json",
+    ])
+    assert exit_code == 3
+    report = json.loads(capsys.readouterr().out)
+    assert any(finding["severity"] in {"medium", "high"} for finding in report["findings"])
+
+
+def test_failure_gate_options_are_mutually_exclusive():
+    with pytest.raises(SystemExit) as exc:
+        build_parser().parse_args([
+            "analyze", "app.log", "--fail-on-finding", "--fail-on-severity", "high",
+        ])
+    assert exc.value.code == 2
