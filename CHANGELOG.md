@@ -7,6 +7,7 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 ## [Unreleased]
 
 ### Added
+- Elevated error-count anomaly detection is now scoped by logical event source, preventing unrelated services from combining into a false threshold hit and reporting source context with source-local prevalence scoring.
 - Flat ECS `service.name` is now recognized as the logical event source, so ECS JSON logs participate correctly in source filtering, per-service health summaries, and source-scoped anomaly detection while preserving explicit source precedence and the original field in telemetry context.
 - OpenTelemetry JSON `body` AnyValues now normalize unambiguous `arrayValue` and `kvlistValue` payloads recursively into deterministic compact JSON messages, while malformed or ambiguous shapes remain preserved rather than guessed.
 - JSON parsing recognizes nested `service.name` and OpenTelemetry resource `service.name` attributes as logical event sources, improving per-service filtering, aggregation, and source-scoped anomaly detection while preserving explicit source precedence and raw telemetry context.
