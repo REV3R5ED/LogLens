@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import gzip
 import json
 import sys
 from contextlib import nullcontext
@@ -40,6 +41,15 @@ def _window_minutes(value: str) -> int:
     return parsed
 
 
+def _open_input(path: Path):
+    """Open stdin or a local log, transparently decompressing .gz files."""
+    if str(path) == "-":
+        return nullcontext(sys.stdin)
+    if path.suffix.lower() == ".gz":
+        return gzip.open(path, "rt", encoding="utf-8", errors="replace")
+    return path.open("r", encoding="utf-8", errors="replace")
+
+
 def _analyze(
     path: Path,
     format: str,
@@ -58,8 +68,7 @@ def _analyze(
     total_input = 0
     parse_errors = 0
     source_name = "<stdin>" if str(path) == "-" else str(path)
-    input_stream = nullcontext(sys.stdin) if str(path) == "-" else path.open("r", encoding="utf-8", errors="replace")
-    with input_stream as handle:
+    with _open_input(path) as handle:
         for line in handle:
             if not line.strip():
                 continue
@@ -138,7 +147,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subparsers = parser.add_subparsers(dest="command", required=True)
     analyze = subparsers.add_parser("analyze", help="summarize a local log file or stdin")
-    analyze.add_argument("path", type=Path, help="local log path, or '-' to read from stdin")
+    analyze.add_argument("path", type=Path, help="local log path (.gz supported), or '-' to read from stdin")
     analyze.add_argument("--format", choices=("auto", "json", "text"), default="auto")
     analyze.add_argument("--level", action="append", dest="levels", help="include only this level; repeat for multiple levels")
     analyze.add_argument("--contains", help="include only events whose message contains this text")

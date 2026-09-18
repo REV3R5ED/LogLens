@@ -7,6 +7,7 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 ## [Unreleased]
 
 ### Added
+- Local `.gz` log files are transparently decompressed during analysis, allowing rotated/compressed logs to be inspected without a manual extraction step while preserving normal parsing, filtering, detection, and reporting behavior.
 - `loglens analyze -` reads logs from standard input, enabling safe Unix pipelines and container/CI workflows without temporary files; reports identify the input as `<stdin>` and preserve normal parse-error and finding exit-code semantics.
 - `--fail-on-severity {low,medium,high}` lets CI and scripted defensive analysis fail only when a finding reaches an analyst-selected severity threshold; the existing `--fail-on-finding` behavior remains available as the equivalent of a low-severity gate.
 
