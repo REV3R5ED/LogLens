@@ -7,6 +7,7 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 ## [Unreleased]
 
 ### Added
+- `journalctl -o json` records now normalize `MESSAGE`, syslog `PRIORITY`, `__REALTIME_TIMESTAMP`, and common service identifiers (`_SYSTEMD_UNIT`, `SYSLOG_IDENTIFIER`, `_COMM`) into LogLens message, level, timestamp, and logical source fields while preserving explicit canonical-field precedence and unrelated journal metadata.
 - CSV reports now preserve `max_parse_errors` alongside the observed `parse_errors`, keeping parse-quality policy auditable across both machine-readable report formats.
 - `--max-parse-errors N` lets analysts tolerate a small, explicit number of malformed records in noisy strict-JSON inputs while keeping the observed count and configured budget visible in reports; the default remains strict at zero.
 - CSV reporting now escapes ASCII control characters in untrusted text cells while retaining spreadsheet-formula neutralization, keeping each logical record on one physical row for safer ingestion by spreadsheets and downstream tooling.
