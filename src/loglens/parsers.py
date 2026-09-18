@@ -144,8 +144,9 @@ def _source(record: dict[str, Any], fallback: str | None) -> str | None:
     if isinstance(value, str) and value.strip(): return value.strip()
     value = _otel_resource_service_name(record)
     if value is not None: return value
-    value = _first_present(record, ("_SYSTEMD_UNIT", "SYSLOG_IDENTIFIER", "_COMM"))
-    if isinstance(value, str) and value.strip(): return value.strip()
+    for key in ("_SYSTEMD_UNIT", "SYSLOG_IDENTIFIER", "_COMM"):
+        value = record.get(key)
+        if isinstance(value, str) and value.strip(): return value.strip()
     return fallback
 
 
