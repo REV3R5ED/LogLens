@@ -14,11 +14,26 @@ def report_to_json(report: Mapping[str, Any]) -> str:
     return json.dumps(report, indent=2, sort_keys=True)
 
 
+def _escape_csv_controls(value: str) -> str:
+    """Keep untrusted text on one physical CSV row without hiding its content."""
+    escapes = {"\n": r"\n", "\r": r"\r", "\t": r"\t"}
+    parts: list[str] = []
+    for char in value:
+        codepoint = ord(char)
+        if codepoint < 32 or codepoint == 127:
+            parts.append(escapes.get(char, f"\\x{codepoint:02x}"))
+        else:
+            parts.append(char)
+    return "".join(parts)
+
+
 def _csv_safe(value: Any) -> Any:
-    """Neutralize spreadsheet formula prefixes in untrusted text cells."""
-    if isinstance(value, str) and value.lstrip().startswith(("=", "+", "-", "@")):
-        return "'" + value
-    return value
+    """Neutralize spreadsheet formulas and control characters in untrusted text cells."""
+    if not isinstance(value, str):
+        return value
+    formula_like = value.lstrip().startswith(("=", "+", "-", "@"))
+    safe = _escape_csv_controls(value)
+    return "'" + safe if formula_like else safe
 
 
 def report_to_csv(report: Mapping[str, Any]) -> str:
