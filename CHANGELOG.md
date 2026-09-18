@@ -6,36 +6,33 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-17
+
 ### Added
-- JSON parsing now recognizes OpenTelemetry `timeUnixNano` and `observedTimeUnixNano` timestamps supplied as integer or decimal-string nanoseconds, converting them to UTC while preserving canonical event-time precedence and rejecting malformed values safely.
-- JSON parsing now recognizes OpenTelemetry JSON camelCase `severityText` and `observedTimestamp` aliases, while preserving existing canonical/snake_case precedence and retaining unrelated telemetry context.
-- JSON parsing now recognizes OpenTelemetry-style `observed_timestamp` as an ISO-8601 event-time fallback, while preserving canonical timestamp precedence so telemetry exports can participate in deterministic time-window analysis.
-- JSON parsing now recognizes OpenTelemetry-style `severity_text` and `body` aliases while preserving canonical `level`/`message` precedence and retaining unrelated telemetry context such as trace identifiers.
-- JSON parsing now recognizes nested ECS `log.level` objects in addition to the existing flat alias, while preserving canonical/flat-field precedence and retaining the full nested `log` object as analyst context.
-- JSON parsing now recognizes common flat ECS/logging aliases: `@timestamp` and `ts` for event time and `log.level` for severity, while preserving canonical-field precedence and retaining unrelated structured context.
-- Leading ISO-8601 timestamp recognition for unstructured text logs, allowing common timestamp-first application logs to participate in deterministic time-window baselines without guessing dates embedded later in messages.
-- Bracketed leading ISO-8601 timestamps are recognized in both compact (`[YYYY-MM-DDTHH:MM:SSZ]`) and split (`[YYYY-MM-DD HH:MM:SS]`) forms, improving compatibility with common application-log layouts.
-- Repeated-message anomaly detection now scopes identical messages by event source when source metadata is available, reducing cross-service false positives and exposing the source in finding context.
-- Text parsing now recognizes explicit logfmt-style `level=<value>` and `severity=<value>` fields, including canonical severity aliases, while ignoring unrelated key-value fields to avoid accidental severity classification.
-- Text parsing now recognizes explicit logfmt-style `ts=<ISO-8601>`, `timestamp=<ISO-8601>`, and `time=<ISO-8601>` fields so structured text logs can participate in time-window baselines without treating unrelated timestamp-like fields as event time.
+- JSON parsing recognizes OpenTelemetry `timeUnixNano` and `observedTimeUnixNano` timestamps supplied as integer or decimal-string nanoseconds, converting them to UTC while preserving canonical event-time precedence and rejecting malformed values safely.
+- JSON parsing recognizes OpenTelemetry JSON camelCase `severityText` and `observedTimestamp` aliases, while preserving existing canonical/snake_case precedence and retaining unrelated telemetry context.
+- JSON parsing recognizes OpenTelemetry-style `observed_timestamp` as an ISO-8601 event-time fallback, while preserving canonical timestamp precedence.
+- JSON parsing recognizes OpenTelemetry-style `severity_text` and `body` aliases while preserving canonical `level`/`message` precedence and retaining unrelated telemetry context such as trace identifiers.
+- JSON parsing recognizes nested ECS `log.level` objects and common flat ECS/logging aliases such as `@timestamp`, `ts`, and `log.level`, with explicit precedence rules.
+- Leading and bracketed ISO-8601 timestamps are recognized in unstructured text logs, including compact and split timestamp forms.
+- Repeated-message anomaly detection scopes identical messages by event source when source metadata is available, reducing cross-service false positives and exposing source context.
+- Text parsing recognizes explicit logfmt-style `level=<value>` and `severity=<value>` fields, including canonical severity aliases.
+- Text parsing recognizes explicit logfmt-style `ts=<ISO-8601>`, `timestamp=<ISO-8601>`, and `time=<ISO-8601>` fields for deterministic time-window analysis.
 
 ### Changed
-- Time-window baseline sizing now requires an actual integer from 1 to 1440 minutes; booleans, floats, strings, and null-like values fail clearly before aggregation instead of relying on Python coercion or comparison behavior.
-- Anomaly thresholds now require actual integer values in programmatic use; floats, non-finite numbers, booleans, and strings are rejected before analysis so scoring remains deterministic and configuration mistakes fail clearly.
-- Repeated-message prevalence scoring now uses the same source-and-severity scope as repetition detection, so unrelated services or different-severity traffic cannot dilute a concentrated signal.
-- Repeated-message detection now also scopes identical text by normalized severity level, preventing mixed INFO/WARN/ERROR events with the same message from being combined into a misleading repetition finding.
-- Severity normalization now trims surrounding whitespace and canonicalizes common application/syslog labels (`WARNING` to `WARN`, `ERR` to `ERROR`, `FATAL`/`CRIT`/`ALERT`/`EMERG`/`EMERGENCY` to `CRITICAL`, and `INFORMATION`/`INFORMATIONAL` to `INFO`) across JSON and text inputs, preventing equivalent severities from fragmenting aggregates and anomaly analysis.
+- Time-window baseline sizing requires an actual integer from 1 to 1440 minutes; booleans, floats, strings, and null-like values fail clearly before aggregation.
+- Anomaly thresholds require actual integer values in programmatic use so scoring remains deterministic and configuration mistakes fail clearly.
+- Repeated-message prevalence scoring uses the same source-and-severity scope as repetition detection.
+- Repeated-message detection scopes identical text by normalized severity level, preventing mixed-severity traffic from being combined into a misleading finding.
+- Severity normalization trims surrounding whitespace and canonicalizes common application/syslog severity aliases across JSON and text inputs.
 
 ### Fixed
-- Timestamp-first text logs using the common `YYYY-MM-DD HH:MM:SS` form now preserve their time-of-day (and optional UTC offset) instead of interpreting the leading date alone as midnight.
+- Timestamp-first text logs using the common `YYYY-MM-DD HH:MM:SS` form preserve their time-of-day and optional UTC offset instead of interpreting the leading date alone as midnight.
 
 ### Security
-- Analyst-facing repeated-message findings now escape ASCII control characters in untrusted log messages and source labels, preventing embedded newlines, terminal escape bytes, NULs, and similar controls from altering terminal/report presentation while preserving them as visible escape notation.
-- CSV report serialization now neutralizes untrusted text beginning with spreadsheet formula prefixes (`=`, `+`, `-`, `@`) while preserving numeric values, reducing formula-injection risk when analysts open exported reports in spreadsheet applications.
-- CSV formula-injection protection now detects dangerous prefixes hidden behind leading ASCII or Unicode whitespace while preserving the original cell text, covering non-breaking, em, narrow no-break, and ideographic spaces in addition to spaces, tabs, carriage returns, and newlines.
-
-### Planned
-- Portfolio-ready tagged release after final CI and documentation review.
+- Analyst-facing repeated-message findings escape ASCII control characters in untrusted log messages and source labels so terminal/report presentation cannot be altered by embedded controls.
+- CSV report serialization neutralizes untrusted text beginning with spreadsheet formula prefixes while preserving numeric values.
+- CSV formula-injection protection detects dangerous prefixes hidden behind leading ASCII or Unicode whitespace.
 
 ## [0.2.0] - 2026-09-15
 
@@ -68,5 +65,6 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 - JSON summary and CSV report output.
 - Unit tests and GitHub Actions CI.
 
-[Unreleased]: https://github.com/REV3R5ED/LogLens/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/REV3R5ED/LogLens/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/REV3R5ED/LogLens/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/REV3R5ED/LogLens/releases/tag/v0.2.0
