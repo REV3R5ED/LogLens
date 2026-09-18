@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from contextlib import nullcontext
 from pathlib import Path
 
 from . import __version__
@@ -56,13 +57,15 @@ def _analyze(
     events = []
     total_input = 0
     parse_errors = 0
-    with path.open("r", encoding="utf-8", errors="replace") as handle:
+    source_name = "<stdin>" if str(path) == "-" else str(path)
+    input_stream = nullcontext(sys.stdin) if str(path) == "-" else path.open("r", encoding="utf-8", errors="replace")
+    with input_stream as handle:
         for line in handle:
             if not line.strip():
                 continue
             total_input += 1
             try:
-                events.append(parse_line(line, source=str(path), format=format))
+                events.append(parse_line(line, source=source_name, format=format))
             except (ValueError, json.JSONDecodeError):
                 parse_errors += 1
 
@@ -79,7 +82,7 @@ def _analyze(
     ]
     report = summarize(matched).to_dict()
     report.update({
-        "source": str(path),
+        "source": source_name,
         "input_events": total_input,
         "matched_events": len(matched),
         "parse_errors": parse_errors,
@@ -103,7 +106,7 @@ def _analyze(
     elif output_format == "csv":
         print(report_to_csv(report), end="")
     else:
-        print(f"LogLens: {path}")
+        print(f"LogLens: {source_name}")
         print(f"Input: {total_input} | Matched: {len(matched)} | Parse errors: {parse_errors}")
         for level, count in report["levels"].items():
             print(f"{level:>8}: {count}")
@@ -134,8 +137,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="loglens", description="Lightweight defensive log analysis")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subparsers = parser.add_subparsers(dest="command", required=True)
-    analyze = subparsers.add_parser("analyze", help="summarize a local log file")
-    analyze.add_argument("path", type=Path)
+    analyze = subparsers.add_parser("analyze", help="summarize a local log file or stdin")
+    analyze.add_argument("path", type=Path, help="local log path, or '-' to read from stdin")
     analyze.add_argument("--format", choices=("auto", "json", "text"), default="auto")
     analyze.add_argument("--level", action="append", dest="levels", help="include only this level; repeat for multiple levels")
     analyze.add_argument("--contains", help="include only events whose message contains this text")
