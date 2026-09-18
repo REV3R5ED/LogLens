@@ -7,6 +7,7 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 ## [Unreleased]
 
 ### Added
+- CSV reporting now escapes ASCII control characters in untrusted text cells while retaining spreadsheet-formula neutralization, keeping each logical record on one physical row for safer ingestion by spreadsheets and downstream tooling.
 - Error-burst anomaly scoring now measures prevalence against all events from the same logical source rather than only timestamped error events, making burst severity consistent with source-scoped analysis and reducing inflated scores in otherwise healthy services.
 - Elevated error-count anomaly detection is now scoped by logical event source, preventing unrelated services from combining into a false threshold hit and reporting source context with source-local prevalence scoring.
 - Flat ECS `service.name` is now recognized as the logical event source, so ECS JSON logs participate correctly in source filtering, per-service health summaries, and source-scoped anomaly detection while preserving explicit source precedence and the original field in telemetry context.
