@@ -24,30 +24,53 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 - Repeated-message anomaly detection scopes identical messages by event source when source metadata is available, reducing cross-service false positives and exposing source context.
 - Text parsing recognizes explicit logfmt-style `level=<value>` and `severity=<value>` fields, including canonical severity aliases.
 - Text parsing recognizes explicit logfmt-style `ts=<ISO-8601>`, `timestamp=<ISO-8601>`, and `time=<ISO-8601>` fields for deterministic time-window analysis.
-- Source-aware filtering supports repeatable `--source` selectors with exact case-insensitive matching, including `<unknown>` for events without logical source metadata.
-- Severity-gated CI exits allow automation to fail only at or above an analyst-selected finding severity while retaining complete reports.
 
 ### Changed
-- OpenTelemetry scalar AnyValue bodies are normalized into readable message strings while complex bodies remain deterministic JSON.
-- Release artifacts built and validated in CI are retained for traceable portfolio release preparation.
+- Time-window baseline sizing requires an actual integer from 1 to 1440 minutes; booleans, floats, strings, and null-like values fail clearly before aggregation.
+- Anomaly thresholds require actual integer values in programmatic use so scoring remains deterministic and configuration mistakes fail clearly.
+- Repeated-message prevalence scoring uses the same source-and-severity scope as repetition detection.
+- Repeated-message detection scopes identical text by normalized severity level, preventing mixed-severity traffic from being combined into a misleading finding.
+- Severity normalization trims surrounding whitespace and canonicalizes common application/syslog severity aliases across JSON and text inputs.
 
-## [0.2.0]
+### Fixed
+- Timestamp-first text logs using the common `YYYY-MM-DD HH:MM:SS` form preserve their time-of-day and optional UTC offset instead of interpreting the leading date alone as midnight.
+
+### Security
+- Analyst-facing repeated-message findings escape ASCII control characters in untrusted log messages and source labels so terminal/report presentation cannot be altered by embedded controls.
+- CSV report serialization neutralizes untrusted text beginning with spreadsheet formula prefixes while preserving numeric values.
+- CSV formula-injection protection detects dangerous prefixes hidden behind leading ASCII or Unicode whitespace.
+
+## [0.2.0] - 2026-09-15
 
 ### Added
-- Configurable detection thresholds for elevated errors and repeated messages.
-- Deterministic UTC time-window baselines with timestamp coverage reporting.
-- Transparent 0-100 anomaly scoring and low/medium/high severity bands.
+- Analyst-configurable error and repeated-message detection thresholds with validation.
+- Deterministic UTC time-window baselines with timestamp coverage metadata.
+- Transparent 0-100 anomaly scoring and score-derived low/medium/high severity.
 - Reusable deterministic JSON and long-form CSV report serializers.
-- Source aggregation and per-source health summaries.
-- Expanded CLI integration coverage and release documentation.
+- CSV preservation of detection configuration and time-window baseline context.
+- CLI integration coverage for text, JSON and CSV reports, filtering, malformed strict-JSON input, and missing-file behavior.
+- Optional `--fail-on-finding` CI gate that preserves the full report and returns exit code 3 when anomaly findings are emitted; parse errors retain precedence with exit code 2.
+
+### Changed
+- Detection and reporting operate on the explicitly filtered event set and retain effective analysis configuration for reproducibility.
+- Reporting is separated from parsing and analysis so machine-readable output can be reused programmatically.
+
+### Safety
+- Analysis remains read-only and dependency-light.
+- Detection uses visible deterministic thresholds and scoring rather than opaque or offensive behavior.
+- Malformed input is treated as data and never executed.
 
 ## [0.1.0]
 
 ### Added
-- Installable Python package and `loglens` CLI.
+- Installable Python package and CLI.
 - Normalized log event model.
 - Text and JSON parsers with automatic format detection.
-- Level/message filtering and aggregation.
+- Case-insensitive level/message filtering and reusable aggregation.
 - Explainable elevated-error and repeated-message anomaly rules.
-- JSON and CSV reporting.
-- Unit tests and CI.
+- JSON summary and CSV report output.
+- Unit tests and GitHub Actions CI.
+
+[Unreleased]: https://github.com/REV3R5ED/LogLens/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/REV3R5ED/LogLens/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/REV3R5ED/LogLens/releases/tag/v0.2.0
