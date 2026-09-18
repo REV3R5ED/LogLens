@@ -7,6 +7,7 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 ## [Unreleased]
 
 ### Added
+- OpenTelemetry JSON `body` AnyValues now normalize unambiguous `arrayValue` and `kvlistValue` payloads recursively into deterministic compact JSON messages, while malformed or ambiguous shapes remain preserved rather than guessed.
 - JSON parsing recognizes nested `service.name` and OpenTelemetry resource `service.name` attributes as logical event sources, improving per-service filtering, aggregation, and source-scoped anomaly detection while preserving explicit source precedence and raw telemetry context.
 - Local `.gz` log files are transparently decompressed during analysis, allowing rotated/compressed logs to be inspected without a manual extraction step while preserving normal parsing, filtering, detection, and reporting behavior.
 - `loglens analyze -` reads logs from standard input, enabling safe Unix pipelines and container/CI workflows without temporary files; reports identify the input as `<stdin>` and preserve normal parse-error and finding exit-code semantics.
@@ -28,49 +29,3 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 ### Changed
 - Time-window baseline sizing requires an actual integer from 1 to 1440 minutes; booleans, floats, strings, and null-like values fail clearly before aggregation.
 - Anomaly thresholds require actual integer values in programmatic use so scoring remains deterministic and configuration mistakes fail clearly.
-- Repeated-message prevalence scoring uses the same source-and-severity scope as repetition detection.
-- Repeated-message detection scopes identical text by normalized severity level, preventing mixed-severity traffic from being combined into a misleading finding.
-- Severity normalization trims surrounding whitespace and canonicalizes common application/syslog severity aliases across JSON and text inputs.
-
-### Fixed
-- Timestamp-first text logs using the common `YYYY-MM-DD HH:MM:SS` form preserve their time-of-day and optional UTC offset instead of interpreting the leading date alone as midnight.
-
-### Security
-- Analyst-facing repeated-message findings escape ASCII control characters in untrusted log messages and source labels so terminal/report presentation cannot be altered by embedded controls.
-- CSV report serialization neutralizes untrusted text beginning with spreadsheet formula prefixes while preserving numeric values.
-- CSV formula-injection protection detects dangerous prefixes hidden behind leading ASCII or Unicode whitespace.
-
-## [0.2.0] - 2026-09-15
-
-### Added
-- Analyst-configurable error and repeated-message detection thresholds with validation.
-- Deterministic UTC time-window baselines with timestamp coverage metadata.
-- Transparent 0-100 anomaly scoring and score-derived low/medium/high severity.
-- Reusable deterministic JSON and long-form CSV report serializers.
-- CSV preservation of detection configuration and time-window baseline context.
-- CLI integration coverage for text, JSON and CSV reports, filtering, malformed strict-JSON input, and missing-file behavior.
-- Optional `--fail-on-finding` CI gate that preserves the full report and returns exit code 3 when anomaly findings are emitted; parse errors retain precedence with exit code 2.
-
-### Changed
-- Detection and reporting operate on the explicitly filtered event set and retain effective analysis configuration for reproducibility.
-- Reporting is separated from parsing and analysis so machine-readable output can be reused programmatically.
-
-### Safety
-- Analysis remains read-only and dependency-light.
-- Detection uses visible deterministic thresholds and scoring rather than opaque or offensive behavior.
-- Malformed input is treated as data and never executed.
-
-## [0.1.0]
-
-### Added
-- Installable Python package and CLI.
-- Normalized log event model.
-- Text and JSON parsers with automatic format detection.
-- Case-insensitive level/message filtering and reusable aggregation.
-- Explainable elevated-error and repeated-message anomaly rules.
-- JSON summary and CSV report output.
-- Unit tests and GitHub Actions CI.
-
-[Unreleased]: https://github.com/REV3R5ED/LogLens/compare/v0.3.0...HEAD
-[0.3.0]: https://github.com/REV3R5ED/LogLens/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/REV3R5ED/LogLens/releases/tag/v0.2.0
