@@ -79,11 +79,26 @@ def _nested_present(record: dict[str, Any], path: tuple[str, ...], default: Any 
     return value
 
 
+def _otel_resource_service_name(record: dict[str, Any]) -> str | None:
+    """Read service.name from an OTLP JSON resource attribute list."""
+    attributes = _nested_present(record, ("resource", "attributes"), [])
+    if not isinstance(attributes, list): return None
+    for attribute in attributes:
+        if not isinstance(attribute, dict) or attribute.get("key") != "service.name": continue
+        value = attribute.get("value")
+        if isinstance(value, dict): value = value.get("stringValue")
+        if isinstance(value, str) and value.strip(): return value.strip()
+    return None
+
+
 def _source(record: dict[str, Any], fallback: str | None) -> str | None:
     """Return a conservative logical source name, falling back to provenance."""
     value = _first_present(record, ("source", "service", "component", "logger"))
-    if isinstance(value, str) and value.strip():
-        return value.strip()
+    if isinstance(value, str) and value.strip(): return value.strip()
+    value = _nested_present(record, ("service", "name"), None)
+    if isinstance(value, str) and value.strip(): return value.strip()
+    value = _otel_resource_service_name(record)
+    if value is not None: return value
     return fallback
 
 
