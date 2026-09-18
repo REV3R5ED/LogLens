@@ -106,6 +106,19 @@ def test_csv_output_is_parseable_and_preserves_report_sections(tmp_path, capsys)
     }
 
 
+def test_csv_report_preserves_parse_error_budget(tmp_path, capsys):
+    log = tmp_path / "events.jsonl"
+    log.write_text('{"level":"INFO","message":"valid"}\n{bad}\n', encoding="utf-8")
+    exit_code = main([
+        "analyze", str(log), "--format", "json", "--max-parse-errors", "1", "--csv",
+    ])
+    assert exit_code == 0
+    rows = list(csv.DictReader(io.StringIO(capsys.readouterr().out)))
+    summary = {row["name"]: row["value"] for row in rows if row["record_type"] == "summary"}
+    assert summary["parse_errors"] == "1"
+    assert summary["max_parse_errors"] == "1"
+
+
 def test_strict_json_parse_errors_return_nonzero_but_emit_report(tmp_path, capsys):
     log = tmp_path / "events.jsonl"
     log.write_text(
