@@ -56,15 +56,25 @@ def filter_events(
     *,
     levels: set[str] | None = None,
     contains: str | None = None,
+    sources: set[str] | None = None,
 ) -> list[LogEvent]:
-    """Return events matching optional level and message filters."""
+    """Return events matching optional level, message, and source filters.
+
+    Source matching is case-insensitive and exact after trimming whitespace.
+    Events without a logical source can be selected explicitly with
+    ``<unknown>`` so incomplete telemetry remains queryable.
+    """
     normalized_levels = {level.upper() for level in levels} if levels else None
+    normalized_sources = {source.strip().casefold() for source in sources} if sources else None
     needle = contains.casefold() if contains else None
     matched: list[LogEvent] = []
     for event in events:
         if normalized_levels is not None and event.level.upper() not in normalized_levels:
             continue
         if needle is not None and needle not in event.message.casefold():
+            continue
+        event_source = event.source.strip() if event.source and event.source.strip() else "<unknown>"
+        if normalized_sources is not None and event_source.casefold() not in normalized_sources:
             continue
         matched.append(event)
     return matched
