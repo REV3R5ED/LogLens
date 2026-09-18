@@ -115,6 +115,8 @@ def _source(record: dict[str, Any], fallback: str | None) -> str | None:
     """Return a conservative logical source name, falling back to provenance."""
     value = _first_present(record, ("source", "service", "component", "logger"))
     if isinstance(value, str) and value.strip(): return value.strip()
+    value = record.get("service.name")
+    if isinstance(value, str) and value.strip(): return value.strip()
     value = _nested_present(record, ("service", "name"), None)
     if isinstance(value, str) and value.strip(): return value.strip()
     value = _otel_resource_service_name(record)
