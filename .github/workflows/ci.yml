@@ -44,3 +44,12 @@ jobs:
           python -m build
       - name: Validate distribution metadata
         run: python -m twine check dist/*
+      - name: Verify distribution artifacts exist
+        run: test -n "$(find dist -maxdepth 1 -type f -print -quit)"
+      - name: Preserve validated distribution artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: loglens-dist-${{ github.sha }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
