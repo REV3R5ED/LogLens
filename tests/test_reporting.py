@@ -76,7 +76,7 @@ def test_report_to_csv_neutralizes_formula_prefixes_after_leading_whitespace():
     for value in prefixes:
         report = {"source": value, "events": 1, "levels": {}, "sources": {}, "findings": []}
         rows = _read_csv(report_to_csv(report))
-        assert rows[0]["value"] == "'" + value
+        assert rows[0]["value"] == "'" + value.replace("\t", r"\t").replace("\r", r"\r").replace("\n", r"\n")
 
 
 def test_report_to_csv_neutralizes_formula_prefixes_after_unicode_whitespace():
@@ -85,6 +85,22 @@ def test_report_to_csv_neutralizes_formula_prefixes_after_unicode_whitespace():
         report = {"source": value, "events": 1, "levels": {}, "sources": {}, "findings": []}
         rows = _read_csv(report_to_csv(report))
         assert rows[0]["value"] == "'" + value
+
+
+def test_report_to_csv_escapes_control_characters_without_creating_rows():
+    report = {
+        "source": "api\nworker\tqueue\x00",
+        "events": 1,
+        "levels": {},
+        "sources": {},
+        "findings": [{"rule": "repeat", "count": 2, "severity": "low", "score": 51,
+                      "message": "line one\r\nline two\x7f"}],
+    }
+    rendered = report_to_csv(report)
+    rows = _read_csv(rendered)
+    assert rows[0]["value"] == r"api\nworker\tqueue\x00"
+    assert rows[-1]["message"] == r"line one\r\nline two\x7f"
+    assert len(rendered.splitlines()) == len(rows) + 1
 
 
 def test_report_to_csv_preserves_benign_leading_whitespace_and_numeric_values():
