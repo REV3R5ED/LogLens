@@ -80,6 +80,7 @@ def _detect_elevated_errors(events: list[LogEvent], threshold: int) -> list[Find
 
 def _detect_error_bursts(events: list[LogEvent], threshold: int, window_seconds: int) -> list[Finding]:
     """Detect dense error windows per source without requiring ordered input."""
+    source_totals = Counter(event.source for event in events)
     errors_by_source: dict[str | None, list[LogEvent]] = defaultdict(list)
     for event in events:
         if event.timestamp is not None and event.level.upper() in {"ERROR", "CRITICAL", "FATAL"}:
@@ -96,7 +97,7 @@ def _detect_error_bursts(events: list[LogEvent], threshold: int, window_seconds:
                 left += 1
             best = max(best, right - left + 1)
         if best >= threshold:
-            score = _score(best, threshold, len(ordered))
+            score = _score(best, threshold, source_totals[source])
             context = f" [{_escape_controls(source)}]" if source else ""
             findings.append(Finding("error-burst", _severity(score), f"Error burst{context} within {window_seconds}s window", best, score))
     return findings
