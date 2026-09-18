@@ -11,6 +11,28 @@ def test_detects_elevated_error_count_with_explainable_score():
     }]
 
 
+def test_elevated_errors_are_scoped_by_source():
+    events = [LogEvent(f"api failure {i}", "ERROR", source="api") for i in range(3)] + [LogEvent(f"worker failure {i}", "ERROR", source="worker") for i in range(3)]
+    assert detect_anomalies(events, error_threshold=5) == []
+
+
+def test_elevated_error_finding_exposes_source_context_and_scope_prevalence():
+    events = [LogEvent(f"failure {i}", "ERROR", source="api") for i in range(5)] + [LogEvent(f"normal {i}", "INFO", source="worker") for i in range(95)]
+    finding = detect_anomalies(events)[0]
+    assert finding.rule == "elevated-errors"
+    assert finding.message == "Elevated error-level event count [api]"
+    assert finding.count == 5
+    assert finding.score == 75
+    assert finding.severity == "medium"
+
+
+def test_elevated_error_source_context_escapes_ascii_controls():
+    events = [LogEvent(f"failure {i}", "ERROR", source="api\nnode") for i in range(5)]
+    finding = detect_anomalies(events)[0]
+    assert finding.message == r"Elevated error-level event count [api\nnode]"
+    assert "\n" not in finding.message
+
+
 def test_score_increases_with_threshold_excess_and_is_bounded():
     at_threshold = detect_anomalies([LogEvent("bad", "ERROR") for _ in range(5)] + [LogEvent("ok", "INFO") for _ in range(5)])[0]
     above_threshold = detect_anomalies([LogEvent("bad", "ERROR") for _ in range(10)] + [LogEvent("ok", "INFO") for _ in range(5)])[0]
