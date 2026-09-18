@@ -42,7 +42,7 @@ def report_to_csv(report: Mapping[str, Any]) -> str:
     writer = csv.writer(output, lineterminator="\r\n")
     writer.writerow(("record_type", "name", "value", "severity", "score", "message"))
 
-    for name in ("source", "input_events", "matched_events", "parse_errors", "events"):
+    for name in ("source", "input_events", "matched_events", "parse_errors", "max_parse_errors", "events"):
         if name in report:
             writer.writerow(("summary", name, _csv_safe(report[name]), "", "", ""))
 
