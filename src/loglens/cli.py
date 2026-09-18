@@ -27,6 +27,13 @@ def _positive_int(value: str) -> int:
     return parsed
 
 
+def _nonnegative_int(value: str) -> int:
+    parsed = int(value)
+    if parsed < 0:
+        raise argparse.ArgumentTypeError("must be at least 0")
+    return parsed
+
+
 def _repeat_threshold(value: str) -> int:
     parsed = int(value)
     if parsed < 2:
@@ -63,6 +70,7 @@ def _analyze(
     burst_window_seconds: int,
     window_minutes: int | None,
     fail_on_severity: str | None,
+    max_parse_errors: int,
 ) -> int:
     events = []
     total_input = 0
@@ -95,6 +103,7 @@ def _analyze(
         "input_events": total_input,
         "matched_events": len(matched),
         "parse_errors": parse_errors,
+        "max_parse_errors": max_parse_errors,
         "source_health": [summary.to_dict() for summary in summarize_sources(matched)],
         "detection_config": {
             "error_threshold": error_threshold,
@@ -133,7 +142,7 @@ def _analyze(
             print("Findings:")
             for finding in findings:
                 print(f"  [{finding['severity']}] {finding['rule']}: {finding['message']} ({finding['count']})")
-    if parse_errors:
+    if parse_errors > max_parse_errors:
         return 2
     if fail_on_severity is not None:
         threshold = _SEVERITY_RANK[fail_on_severity]
@@ -175,6 +184,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--window-minutes", type=_window_minutes,
         help="include deterministic UTC time-window baselines (1-1440 minutes; timestamped events only)",
     )
+    analyze.add_argument(
+        "--max-parse-errors", type=_nonnegative_int, default=0,
+        help="allow up to this many malformed records before returning exit code 2 (default: 0)",
+    )
     failure = analyze.add_mutually_exclusive_group()
     failure.add_argument(
         "--fail-on-finding", action="store_const", const="low", dest="fail_on_severity",
@@ -201,7 +214,7 @@ def main(argv: list[str] | None = None) -> int:
                 set(args.sources) if args.sources else None,
                 args.error_threshold, args.repeat_threshold,
                 args.burst_threshold, args.burst_window_seconds,
-                args.window_minutes, args.fail_on_severity,
+                args.window_minutes, args.fail_on_severity, args.max_parse_errors,
             )
         except OSError as exc:
             print(f"loglens: {exc}", file=sys.stderr)
