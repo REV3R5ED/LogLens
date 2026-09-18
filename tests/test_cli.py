@@ -25,7 +25,7 @@ def test_detection_threshold_flags_are_parsed():
 
 @pytest.mark.parametrize(
     ("flag", "value"),
-    [("--error-threshold", "0"), ("--repeat-threshold", "1"), ("--window-minutes", "0"), ("--window-minutes", "1441")],
+    [("--error-threshold", "0"), ("--repeat-threshold", "1"), ("--window-minutes", "0"), ("--window-minutes", "1441"), ("--max-parse-errors", "-1")],
 )
 def test_invalid_detection_and_window_values_are_rejected(flag, value):
     with pytest.raises(SystemExit) as exc:
@@ -47,6 +47,7 @@ def test_json_report_records_effective_detection_config(tmp_path, capsys):
         "burst_threshold": 5,
         "burst_window_seconds": 60,
     }
+    assert report["max_parse_errors"] == 0
     assert {finding["rule"] for finding in report["findings"]} == {"elevated-errors", "repeated-message"}
 
 
@@ -118,6 +119,36 @@ def test_strict_json_parse_errors_return_nonzero_but_emit_report(tmp_path, capsy
     assert report["input_events"] == 2
     assert report["matched_events"] == 1
     assert report["parse_errors"] == 1
+    assert report["max_parse_errors"] == 0
+
+
+def test_parse_error_budget_allows_known_noise_but_remains_auditable(tmp_path, capsys):
+    log = tmp_path / "events.jsonl"
+    log.write_text(
+        '{"level":"INFO","message":"valid"}\n'
+        '{not valid json}\n',
+        encoding="utf-8",
+    )
+    exit_code = main([
+        "analyze", str(log), "--format", "json", "--max-parse-errors", "1", "--json",
+    ])
+    assert exit_code == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["parse_errors"] == 1
+    assert report["max_parse_errors"] == 1
+    assert report["matched_events"] == 1
+
+
+def test_parse_error_budget_fails_when_exceeded(tmp_path, capsys):
+    log = tmp_path / "events.jsonl"
+    log.write_text('{bad}\n{also bad}\n', encoding="utf-8")
+    exit_code = main([
+        "analyze", str(log), "--format", "json", "--max-parse-errors", "1", "--json",
+    ])
+    assert exit_code == 2
+    report = json.loads(capsys.readouterr().out)
+    assert report["parse_errors"] == 2
+    assert report["max_parse_errors"] == 1
 
 
 def test_missing_input_file_returns_operational_error(tmp_path, capsys):
