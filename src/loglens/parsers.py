@@ -52,16 +52,36 @@ def _otel_severity_number(value: Any) -> str:
     return "UNKNOWN"
 
 
+def _otel_anyvalue(value: Any) -> Any:
+    """Decode an unambiguous OpenTelemetry JSON AnyValue recursively."""
+    if not isinstance(value, dict): return value
+    keys = ("stringValue", "intValue", "doubleValue", "boolValue", "bytesValue", "arrayValue", "kvlistValue")
+    present = [key for key in keys if key in value]
+    if len(present) != 1: return value
+    key = present[0]
+    item = value[key]
+    if key in {"stringValue", "intValue", "doubleValue", "boolValue", "bytesValue"}: return item
+    if key == "arrayValue" and isinstance(item, dict) and isinstance(item.get("values"), list):
+        return [_otel_anyvalue(entry) for entry in item["values"]]
+    if key == "kvlistValue" and isinstance(item, dict) and isinstance(item.get("values"), list):
+        decoded: dict[str, Any] = {}
+        for entry in item["values"]:
+            if not isinstance(entry, dict) or not isinstance(entry.get("key"), str) or "value" not in entry: return value
+            if entry["key"] in decoded: return value
+            decoded[entry["key"]] = _otel_anyvalue(entry["value"])
+        return decoded
+    return value
+
+
 def _message(value: Any) -> str:
-    """Normalize plain messages and scalar OpenTelemetry AnyValue bodies."""
+    """Normalize plain messages and OpenTelemetry AnyValue bodies."""
+    decoded = _otel_anyvalue(value)
+    if decoded is not value:
+        if decoded is None: return ""
+        if isinstance(decoded, bool): return "true" if decoded else "false"
+        if isinstance(decoded, (str, int, float)): return str(decoded)
+        return json.dumps(decoded, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     if not isinstance(value, dict): return str(value)
-    scalar_keys = ("stringValue", "intValue", "doubleValue", "boolValue")
-    present = [key for key in scalar_keys if key in value]
-    if len(present) == 1:
-        scalar = value[present[0]]
-        if scalar is None: return ""
-        if isinstance(scalar, bool): return "true" if scalar else "false"
-        if isinstance(scalar, (str, int, float)): return str(scalar)
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
