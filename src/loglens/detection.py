@@ -53,6 +53,31 @@ def _escape_controls(value: str) -> str:
     return "".join(parts)
 
 
+def _detect_elevated_errors(events: list[LogEvent], threshold: int) -> list[Finding]:
+    """Detect elevated error counts per logical source."""
+    totals = Counter(event.source for event in events)
+    errors = Counter(
+        event.source
+        for event in events
+        if event.level.upper() in {"ERROR", "CRITICAL", "FATAL"}
+    )
+    findings: list[Finding] = []
+    for source, count in sorted(errors.items(), key=lambda item: item[0] or ""):
+        if count >= threshold:
+            score = _score(count, threshold, totals[source])
+            context = f" [{_escape_controls(source)}]" if source else ""
+            findings.append(
+                Finding(
+                    "elevated-errors",
+                    _severity(score),
+                    f"Elevated error-level event count{context}",
+                    count,
+                    score,
+                )
+            )
+    return findings
+
+
 def _detect_error_bursts(events: list[LogEvent], threshold: int, window_seconds: int) -> list[Finding]:
     """Detect dense error windows per source without requiring ordered input."""
     errors_by_source: dict[str | None, list[LogEvent]] = defaultdict(list)
@@ -86,12 +111,7 @@ def detect_anomalies(events: Iterable[LogEvent], *, error_threshold: int = 5, re
         raise ValueError("thresholds must be positive (repeat/burst threshold >= 2)")
 
     materialized = list(events)
-    total = len(materialized)
-    findings: list[Finding] = []
-    error_count = sum(event.level.upper() in {"ERROR", "CRITICAL", "FATAL"} for event in materialized)
-    if error_count >= error_threshold:
-        score = _score(error_count, error_threshold, total)
-        findings.append(Finding("elevated-errors", _severity(score), "Elevated error-level event count", error_count, score))
+    findings = _detect_elevated_errors(materialized, error_threshold)
 
     scope_totals = Counter((event.source, event.level.upper()) for event in materialized)
     messages = Counter((event.source, event.level.upper(), event.message.strip()) for event in materialized if event.message.strip())
