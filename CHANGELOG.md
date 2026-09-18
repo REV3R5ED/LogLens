@@ -6,6 +6,9 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 
 ## [Unreleased]
 
+### Added
+- `--fail-on-severity {low,medium,high}` lets CI and scripted defensive analysis fail only when a finding reaches an analyst-selected severity threshold; the existing `--fail-on-finding` behavior remains available as the equivalent of a low-severity gate.
+
 ## [0.3.0] - 2026-09-17
 
 ### Added
