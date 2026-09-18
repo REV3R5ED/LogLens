@@ -66,7 +66,19 @@ def test_json_parser_supports_ecs_style_flat_aliases():
     assert event.level == "WARN"
     assert event.timestamp is not None
     assert event.timestamp.isoformat() == "2026-09-15T10:00:00+00:00"
+    assert event.source == "api"
     assert event.fields == {"service.name": "api"}
+
+
+def test_json_parser_flat_ecs_service_name_preserves_explicit_source_precedence():
+    event = parse_json_line('{"source":"gateway","service.name":"api","message":"ready"}', source="file.log")
+    assert event.source == "gateway"
+    assert event.fields == {"service.name": "api"}
+
+
+def test_json_parser_ignores_blank_flat_ecs_service_name():
+    event = parse_json_line('{"service.name":"  ","message":"ready"}', source="file.log")
+    assert event.source == "file.log"
 
 
 def test_json_parser_supports_ts_timestamp_alias():
