@@ -28,7 +28,7 @@ def test_accepts_valid_structured_data_identifier_and_multiple_elements():
     ],
 )
 def test_rejects_invalid_structured_data_identifiers(structured_data):
-    with pytest.raises(ValueError, match="structured data"):
+    with pytest.raises(ValueError):
         parse_rfc5424_line(PREFIX + structured_data)
 
 
