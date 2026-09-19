@@ -130,6 +130,27 @@ def test_text_parser_recognizes_logfmt_level_fields():
     assert parse_text_line("severity='critical' service=db").level == "CRITICAL"
 
 
+def test_text_parser_recognizes_logfmt_source_fields():
+    for key in ("source", "service", "component", "logger"):
+        event = parse_text_line(f"level=error {key}=api msg=failed", source="app.log")
+        assert event.source == "api"
+
+
+def test_text_parser_logfmt_source_falls_back_past_blank_values():
+    event = parse_text_line("service='' component=worker level=info", source="app.log")
+    assert event.source == "worker"
+
+
+def test_text_parser_logfmt_source_overrides_file_provenance():
+    event = parse_text_line("service=api level=info msg=ready", source="app.log")
+    assert event.source == "api"
+
+
+def test_text_parser_preserves_source_fallback_without_logfmt_source():
+    event = parse_text_line("level=info msg=ready", source="app.log")
+    assert event.source == "app.log"
+
+
 def test_text_parser_does_not_treat_arbitrary_key_values_as_severity():
     assert parse_text_line("status=ERROR service=api request=failed").level == "UNKNOWN"
 
