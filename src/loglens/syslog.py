@@ -21,6 +21,7 @@ _RFC5424_TIMESTAMP = re.compile(
     r"\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?"
     r"(?:Z|[+-]\d{2}:\d{2})$"
 )
+_RFC5424_VERSION = re.compile(r"^[1-9]\d{0,2}$")
 _HEADER_LIMITS = {
     "hostname": 255,
     "app": 48,
@@ -100,8 +101,11 @@ def parse_rfc5424_line(line: str, *, source: str | None = None) -> LogEvent:
     pri = int(match.group("pri"))
     if not 0 <= pri <= 191:
         raise ValueError("RFC5424 PRI must be between 0 and 191")
-    if int(match.group("version")) < 1:
-        raise ValueError("RFC5424 VERSION must be positive")
+
+    version_text = match.group("version")
+    if _RFC5424_VERSION.fullmatch(version_text) is None:
+        raise ValueError("RFC5424 VERSION must be 1-999 without leading zeros")
+    version = int(version_text)
 
     timestamp = _parse_timestamp(match.group("timestamp"))
     for name in _HEADER_LIMITS:
@@ -121,7 +125,7 @@ def parse_rfc5424_line(line: str, *, source: str | None = None) -> LogEvent:
     fields = {
         "syslog_facility": pri // 8,
         "syslog_priority": pri,
-        "syslog_version": int(match.group("version")),
+        "syslog_version": version,
     }
     for key in ("hostname", "procid", "msgid"):
         value = match.group(key)
