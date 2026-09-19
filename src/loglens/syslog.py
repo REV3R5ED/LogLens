@@ -175,6 +175,7 @@ def parse_rfc5424_line(line: str, *, source: str | None = None) -> LogEvent:
     sd_end = _structured_data_end(body)
     if sd_end is None:
         raise ValueError("invalid RFC5424 structured data")
+    structured_data = body[:sd_end]
     remainder = body[sd_end:]
     if remainder and not remainder.startswith(" "):
         raise ValueError("RFC5424 message must be separated from structured data by a space")
@@ -188,6 +189,8 @@ def parse_rfc5424_line(line: str, *, source: str | None = None) -> LogEvent:
         "syslog_priority": pri,
         "syslog_version": version,
     }
+    if structured_data != "-":
+        fields["syslog_structured_data"] = structured_data
     for key in ("hostname", "procid", "msgid"):
         value = match.group(key)
         if value != "-":
