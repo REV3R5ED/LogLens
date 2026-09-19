@@ -16,6 +16,11 @@ _HEADER = re.compile(
     r"(?P<timestamp>\S+) (?P<hostname>\S+) (?P<app>\S+) "
     r"(?P<procid>\S+) (?P<msgid>\S+) (?P<body>.*)$"
 )
+_RFC5424_TIMESTAMP = re.compile(
+    r"^\d{4}-\d{2}-\d{2}T"
+    r"\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?"
+    r"(?:Z|[+-]\d{2}:\d{2})$"
+)
 
 
 def _structured_data_end(body: str) -> int | None:
@@ -49,6 +54,21 @@ def _structured_data_end(body: str) -> int | None:
     return None
 
 
+def _parse_timestamp(value: str) -> datetime | None:
+    """Parse an RFC5424 TIMESTAMP, rejecting permissive ISO-8601 variants."""
+    if value == "-":
+        return None
+    if _RFC5424_TIMESTAMP.fullmatch(value) is None:
+        raise ValueError("invalid RFC5424 timestamp")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("invalid RFC5424 timestamp") from exc
+    if parsed.utcoffset() is None:
+        raise ValueError("invalid RFC5424 timestamp")
+    return parsed
+
+
 def parse_rfc5424_line(line: str, *, source: str | None = None) -> LogEvent:
     """Parse one RFC5424 syslog record into a normalized LogEvent.
 
@@ -67,13 +87,7 @@ def parse_rfc5424_line(line: str, *, source: str | None = None) -> LogEvent:
     if int(match.group("version")) < 1:
         raise ValueError("RFC5424 VERSION must be positive")
 
-    timestamp_text = match.group("timestamp")
-    timestamp = None
-    if timestamp_text != "-":
-        try:
-            timestamp = datetime.fromisoformat(timestamp_text.replace("Z", "+00:00"))
-        except ValueError as exc:
-            raise ValueError("invalid RFC5424 timestamp") from exc
+    timestamp = _parse_timestamp(match.group("timestamp"))
 
     body = match.group("body")
     sd_end = _structured_data_end(body)
