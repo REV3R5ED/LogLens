@@ -15,6 +15,7 @@ from .baseline import build_time_windows
 from .detection import detect_anomalies
 from .parsers import parse_line
 from .reporting import report_to_csv, report_to_json
+from .syslog import parse_rfc5424_line
 
 
 _SEVERITY_RANK = {"low": 1, "medium": 2, "high": 3}
@@ -57,21 +58,7 @@ def _open_input(path: Path):
     return path.open("r", encoding="utf-8", errors="replace")
 
 
-def _analyze(
-    path: Path,
-    format: str,
-    output_format: str,
-    levels: set[str] | None,
-    contains: str | None,
-    sources: set[str] | None,
-    error_threshold: int,
-    repeat_threshold: int,
-    burst_threshold: int,
-    burst_window_seconds: int,
-    window_minutes: int | None,
-    fail_on_severity: str | None,
-    max_parse_errors: int,
-) -> int:
+def _analyze(path: Path, format: str, output_format: str, levels: set[str] | None, contains: str | None, sources: set[str] | None, error_threshold: int, repeat_threshold: int, burst_threshold: int, burst_window_seconds: int, window_minutes: int | None, fail_on_severity: str | None, max_parse_errors: int) -> int:
     events = []
     total_input = 0
     parse_errors = 0
@@ -82,43 +69,25 @@ def _analyze(
                 continue
             total_input += 1
             try:
-                events.append(parse_line(line, source=source_name, format=format))
+                if format == "rfc5424":
+                    events.append(parse_rfc5424_line(line, source=source_name))
+                else:
+                    events.append(parse_line(line, source=source_name, format=format))
             except (ValueError, json.JSONDecodeError):
                 parse_errors += 1
 
     matched = filter_events(events, levels=levels, contains=contains, sources=sources)
-    findings = [
-        finding.to_dict()
-        for finding in detect_anomalies(
-            matched,
-            error_threshold=error_threshold,
-            repeat_threshold=repeat_threshold,
-            burst_threshold=burst_threshold,
-            burst_window_seconds=burst_window_seconds,
-        )
-    ]
+    findings = [finding.to_dict() for finding in detect_anomalies(matched, error_threshold=error_threshold, repeat_threshold=repeat_threshold, burst_threshold=burst_threshold, burst_window_seconds=burst_window_seconds)]
     report = summarize(matched).to_dict()
     report.update({
-        "source": source_name,
-        "input_events": total_input,
-        "matched_events": len(matched),
-        "parse_errors": parse_errors,
-        "max_parse_errors": max_parse_errors,
+        "source": source_name, "input_events": total_input, "matched_events": len(matched),
+        "parse_errors": parse_errors, "max_parse_errors": max_parse_errors,
         "source_health": [summary.to_dict() for summary in summarize_sources(matched)],
-        "detection_config": {
-            "error_threshold": error_threshold,
-            "repeat_threshold": repeat_threshold,
-            "burst_threshold": burst_threshold,
-            "burst_window_seconds": burst_window_seconds,
-        },
+        "detection_config": {"error_threshold": error_threshold, "repeat_threshold": repeat_threshold, "burst_threshold": burst_threshold, "burst_window_seconds": burst_window_seconds},
         "findings": findings,
     })
     if window_minutes is not None:
-        report["time_baseline"] = {
-            "window_minutes": window_minutes,
-            "timestamped_events": sum(event.timestamp is not None for event in matched),
-            "windows": build_time_windows(matched, window_minutes=window_minutes),
-        }
+        report["time_baseline"] = {"window_minutes": window_minutes, "timestamped_events": sum(event.timestamp is not None for event in matched), "windows": build_time_windows(matched, window_minutes=window_minutes)}
     if output_format == "json":
         print(report_to_json(report))
     elif output_format == "csv":
@@ -131,10 +100,7 @@ def _analyze(
         if report["source_health"]:
             print("Source health:")
             for source in report["source_health"]:
-                print(
-                    f"  {source['source']}: {source['events']} events | "
-                    f"{source['error_events']} errors | {source['error_rate']:.1%} error rate"
-                )
+                print(f"  {source['source']}: {source['events']} events | {source['error_events']} errors | {source['error_rate']:.1%} error rate")
         if "time_baseline" in report:
             baseline = report["time_baseline"]
             print(f"Time windows: {len(baseline['windows'])} x {window_minutes}m | Timestamped: {baseline['timestamped_events']}")
@@ -157,46 +123,19 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
     analyze = subparsers.add_parser("analyze", help="summarize a local log file or stdin")
     analyze.add_argument("path", type=Path, help="local log path (.gz supported), or '-' to read from stdin")
-    analyze.add_argument("--format", choices=("auto", "json", "text"), default="auto")
+    analyze.add_argument("--format", choices=("auto", "json", "text", "rfc5424"), default="auto", help="input format; use rfc5424 for strict RFC 5424 syslog parsing")
     analyze.add_argument("--level", action="append", dest="levels", help="include only this level; repeat for multiple levels")
     analyze.add_argument("--contains", help="include only events whose message contains this text")
-    analyze.add_argument(
-        "--source", action="append", dest="sources",
-        help="include only this logical source; repeat for multiple sources (case-insensitive)",
-    )
-    analyze.add_argument(
-        "--error-threshold", type=_positive_int, default=5,
-        help="matched ERROR/CRITICAL/FATAL events required for an elevated-errors finding (default: 5)",
-    )
-    analyze.add_argument(
-        "--repeat-threshold", type=_repeat_threshold, default=5,
-        help="identical matched messages required for a repeated-message finding (default: 5, minimum: 2)",
-    )
-    analyze.add_argument(
-        "--burst-threshold", type=_repeat_threshold, default=5,
-        help="timestamped errors from one source required for an error-burst finding (default: 5, minimum: 2)",
-    )
-    analyze.add_argument(
-        "--burst-window-seconds", type=_positive_int, default=60,
-        help="sliding window used for error-burst detection in seconds (default: 60)",
-    )
-    analyze.add_argument(
-        "--window-minutes", type=_window_minutes,
-        help="include deterministic UTC time-window baselines (1-1440 minutes; timestamped events only)",
-    )
-    analyze.add_argument(
-        "--max-parse-errors", type=_nonnegative_int, default=0,
-        help="allow up to this many malformed records before returning exit code 2 (default: 0)",
-    )
+    analyze.add_argument("--source", action="append", dest="sources", help="include only this logical source; repeat for multiple sources (case-insensitive)")
+    analyze.add_argument("--error-threshold", type=_positive_int, default=5, help="matched ERROR/CRITICAL/FATAL events required for an elevated-errors finding (default: 5)")
+    analyze.add_argument("--repeat-threshold", type=_repeat_threshold, default=5, help="identical matched messages required for a repeated-message finding (default: 5, minimum: 2)")
+    analyze.add_argument("--burst-threshold", type=_repeat_threshold, default=5, help="timestamped errors from one source required for an error-burst finding (default: 5, minimum: 2)")
+    analyze.add_argument("--burst-window-seconds", type=_positive_int, default=60, help="sliding window used for error-burst detection in seconds (default: 60)")
+    analyze.add_argument("--window-minutes", type=_window_minutes, help="include deterministic UTC time-window baselines (1-1440 minutes; timestamped events only)")
+    analyze.add_argument("--max-parse-errors", type=_nonnegative_int, default=0, help="allow up to this many malformed records before returning exit code 2 (default: 0)")
     failure = analyze.add_mutually_exclusive_group()
-    failure.add_argument(
-        "--fail-on-finding", action="store_const", const="low", dest="fail_on_severity",
-        help="return exit code 3 when one or more anomaly findings are emitted",
-    )
-    failure.add_argument(
-        "--fail-on-severity", choices=("low", "medium", "high"),
-        help="return exit code 3 when a finding reaches this severity or higher",
-    )
+    failure.add_argument("--fail-on-finding", action="store_const", const="low", dest="fail_on_severity", help="return exit code 3 when one or more anomaly findings are emitted")
+    failure.add_argument("--fail-on-severity", choices=("low", "medium", "high"), help="return exit code 3 when a finding reaches this severity or higher")
     output = analyze.add_mutually_exclusive_group()
     output.add_argument("--json", action="store_const", const="json", dest="output_format", help="emit a JSON report")
     output.add_argument("--csv", action="store_const", const="csv", dest="output_format", help="emit a CSV report")
@@ -208,14 +147,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "analyze":
         try:
-            return _analyze(
-                args.path, args.format, args.output_format,
-                set(args.levels) if args.levels else None, args.contains,
-                set(args.sources) if args.sources else None,
-                args.error_threshold, args.repeat_threshold,
-                args.burst_threshold, args.burst_window_seconds,
-                args.window_minutes, args.fail_on_severity, args.max_parse_errors,
-            )
+            return _analyze(args.path, args.format, args.output_format, set(args.levels) if args.levels else None, args.contains, set(args.sources) if args.sources else None, args.error_threshold, args.repeat_threshold, args.burst_threshold, args.burst_window_seconds, args.window_minutes, args.fail_on_severity, args.max_parse_errors)
         except OSError as exc:
             print(f"loglens: {exc}", file=sys.stderr)
             return 1
