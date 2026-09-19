@@ -39,6 +39,50 @@ def _valid_sd_name(value: str) -> bool:
     )
 
 
+def _valid_sd_element(element: str) -> bool:
+    """Validate one RFC5424 SD-ELEMENT, including PARAM framing and escaping."""
+    sd_id, separator, params = element.partition(" ")
+    if not _valid_sd_name(sd_id):
+        return False
+    if not separator:
+        return True
+
+    position = 0
+    while position < len(params):
+        equals = params.find("=", position)
+        if equals < 0:
+            return False
+        name = params[position:equals]
+        if not _valid_sd_name(name):
+            return False
+        value_start = equals + 1
+        if value_start >= len(params) or params[value_start] != '"':
+            return False
+
+        position = value_start + 1
+        while position < len(params):
+            char = params[position]
+            if char == "\\":
+                position += 1
+                if position >= len(params) or params[position] not in {'"', "\\", "]"}:
+                    return False
+            elif char == '"':
+                position += 1
+                if position == len(params):
+                    return True
+                if params[position] != " ":
+                    return False
+                position += 1
+                break
+            elif char == "]":
+                return False
+            position += 1
+        else:
+            return False
+
+    return False
+
+
 def _structured_data_end(body: str) -> int | None:
     """Return the end of RFC5424 STRUCTURED-DATA without trusting delimiters in quotes."""
     if body.startswith("-"):
@@ -69,8 +113,7 @@ def _structured_data_end(body: str) -> int | None:
             if depth != 1:
                 return None
             element = body[element_start:index]
-            sd_id = element.split(" ", 1)[0]
-            if not _valid_sd_name(sd_id):
+            if not _valid_sd_element(element):
                 return None
             depth = 0
             if index + 1 == len(body) or body[index + 1] != "[":
