@@ -191,7 +191,7 @@ def parse_rfc5424_line(line: str, *, source: str | None = None) -> LogEvent:
     }
     if structured_data != "-":
         fields["syslog_structured_data"] = structured_data
-    for key in ("hostname", "procid", "msgid"):
+    for key in ("hostname", "app", "procid", "msgid"):
         value = match.group(key)
         if value != "-":
             fields[f"syslog_{key}"] = value
