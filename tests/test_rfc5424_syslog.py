@@ -17,10 +17,34 @@ def test_rfc5424_normalizes_header_severity_source_and_message():
     assert event.timestamp is not None
     assert event.timestamp.tzinfo == timezone.utc
     assert event.fields["syslog_facility"] == 20
+    assert event.fields["syslog_severity"] == 5
     assert event.fields["syslog_priority"] == 165
     assert event.fields["syslog_hostname"] == "edge-1"
     assert event.fields["syslog_procid"] == "4242"
     assert event.fields["syslog_msgid"] == "ID47"
+
+
+@pytest.mark.parametrize(
+    ("pri", "severity", "level"),
+    [
+        (0, 0, "CRITICAL"),
+        (3, 3, "ERROR"),
+        (4, 4, "WARN"),
+        (5, 5, "NOTICE"),
+        (6, 6, "INFO"),
+        (7, 7, "DEBUG"),
+        (191, 7, "DEBUG"),
+    ],
+)
+def test_rfc5424_preserves_numeric_severity_independently_of_normalized_level(
+    pri, severity, level
+):
+    event = parse_rfc5424_line(
+        f'<{pri}>1 2026-09-19T04:10:11Z host app - - - message'
+    )
+
+    assert event.fields["syslog_severity"] == severity
+    assert event.level == level
 
 
 def test_rfc5424_nil_app_falls_back_to_hostname_then_provenance():

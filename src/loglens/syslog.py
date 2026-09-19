@@ -161,6 +161,7 @@ def parse_rfc5424_line(line: str, *, source: str | None = None) -> LogEvent:
     pri = int(match.group("pri"))
     if not 0 <= pri <= 191:
         raise ValueError("RFC5424 PRI must be between 0 and 191")
+    severity = pri % 8
 
     version_text = match.group("version")
     if _RFC5424_VERSION.fullmatch(version_text) is None:
@@ -186,6 +187,7 @@ def parse_rfc5424_line(line: str, *, source: str | None = None) -> LogEvent:
     logical_source = app if app != "-" else (hostname if hostname != "-" else source)
     fields = {
         "syslog_facility": pri // 8,
+        "syslog_severity": severity,
         "syslog_priority": pri,
         "syslog_version": version,
     }
@@ -198,7 +200,7 @@ def parse_rfc5424_line(line: str, *, source: str | None = None) -> LogEvent:
 
     return LogEvent(
         message=message,
-        level=_PRI_LEVELS[pri % 8],
+        level=_PRI_LEVELS[severity],
         timestamp=timestamp,
         source=logical_source,
         fields=fields,
