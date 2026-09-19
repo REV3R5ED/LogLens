@@ -32,6 +32,26 @@ def test_rfc5424_nil_app_falls_back_to_hostname_then_provenance():
     assert event.source == "input.log"
 
 
+def test_rfc5424_allows_structured_data_without_message():
+    event = parse_rfc5424_line(
+        '<14>1 2026-09-19T04:10:11Z host app - - [meta trace="abc"]'
+    )
+    assert event.message == ""
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        '-message',
+        '[meta trace="abc"]message',
+    ],
+)
+def test_rfc5424_requires_space_before_message(body):
+    line = f'<14>1 2026-09-19T04:10:11Z host app - - {body}'
+    with pytest.raises(ValueError, match="separated"):
+        parse_rfc5424_line(line)
+
+
 @pytest.mark.parametrize(
     "line",
     [
