@@ -28,6 +28,15 @@ _HEADER_LIMITS = {
     "procid": 128,
     "msgid": 32,
 }
+_SD_NAME_FORBIDDEN = {' ', '=', ']', '"'}
+
+
+def _valid_sd_name(value: str) -> bool:
+    """Return whether a structured-data name satisfies RFC 5424 SD-NAME."""
+    return (
+        1 <= len(value) <= 32
+        and all(33 <= ord(char) <= 126 and char not in _SD_NAME_FORBIDDEN for char in value)
+    )
 
 
 def _structured_data_end(body: str) -> int | None:
@@ -38,6 +47,7 @@ def _structured_data_end(body: str) -> int | None:
         return None
     quoted = escaped = False
     depth = 0
+    element_start = 0
     for index, char in enumerate(body):
         if escaped:
             escaped = False
@@ -51,13 +61,20 @@ def _structured_data_end(body: str) -> int | None:
         if quoted:
             continue
         if char == "[":
-            depth += 1
+            if depth != 0:
+                return None
+            depth = 1
+            element_start = index + 1
         elif char == "]":
-            depth -= 1
-            if depth == 0 and (index + 1 == len(body) or body[index + 1] != "["):
+            if depth != 1:
+                return None
+            element = body[element_start:index]
+            sd_id = element.split(" ", 1)[0]
+            if not _valid_sd_name(sd_id):
+                return None
+            depth = 0
+            if index + 1 == len(body) or body[index + 1] != "[":
                 return index + 1
-        if depth < 0:
-            return None
     return None
 
 
