@@ -14,6 +14,7 @@ Current capabilities:
 - normalized `LogEvent` records
 - JSON log parsing with common field aliases, including OpenTelemetry `severityText`/`severityNumber` and Unix-nanosecond timestamps
 - unstructured text parsing with level detection and leading ISO-8601 timestamp recognition
+- strict RFC 5424 syslog parsing with normalized PRI severity, timestamp, source, and retained header metadata
 - automatic JSON/text detection
 - preservation of unknown JSON fields for later analysis
 - case-insensitive level and message filtering
@@ -24,7 +25,7 @@ Current capabilities:
 - transparent 0-100 anomaly scoring with severity derived from score
 - reusable deterministic JSON and long-form CSV report serializers
 - CSV preservation of effective detection configuration and time-window baselines
-- CLI integration coverage for text, JSON, CSV, filtering, parse failures, and operational errors
+- CLI integration coverage for text, JSON, RFC 5424, CSV, filtering, parse failures, and operational errors
 - automated tests across supported Python versions
 
 ## Quick start
@@ -33,6 +34,7 @@ Current capabilities:
 python -m pip install -e .
 loglens analyze /path/to/app.log
 loglens analyze /path/to/events.jsonl --format json --json
+loglens analyze /path/to/forwarded.log --format rfc5424 --json
 loglens analyze /path/to/app.log --level ERROR --level WARN
 loglens analyze /path/to/app.log --contains "database" --json
 loglens analyze /path/to/app.log --error-threshold 10 --repeat-threshold 8 --json
@@ -44,6 +46,10 @@ pytest -q
 `--level` can be repeated and combined with `--contains`. Reports distinguish total input records from records matching the active filters, so filtering remains visible and auditable. Detection runs only on the matched event set. `--json` and `--csv` are mutually exclusive report formats.
 
 Detection thresholds can be tuned per analysis with `--error-threshold` and `--repeat-threshold`. The defaults remain 5 and 5. Error thresholds must be at least 1 and repeat thresholds at least 2, preventing nonsensical configurations. Machine-readable reports include the effective detection configuration so saved results remain reproducible and auditable.
+
+### RFC 5424 syslog
+
+Use `--format rfc5424` when the input contract is RFC 5424 syslog. LogLens normalizes PRI severity, timestamp, and logical source while retaining common syslog header metadata. Parsing is deliberately strict: malformed records count as parse errors rather than being silently reinterpreted as generic text, and `--max-parse-errors N` can bound known input noise. See [RFC 5424 syslog analysis](docs/rfc5424.md) for examples and parser behavior.
 
 ### OpenTelemetry JSON compatibility
 
@@ -108,17 +114,18 @@ LogLens focuses on detection, troubleshooting, observability, and incident-analy
 - [x] add changelog and release notes
 - [x] parse leading ISO timestamps from common text logs
 - [x] normalize OpenTelemetry severity numbers
+- [x] document RFC 5424 CLI support
 - [ ] tag a portfolio-ready release
 
 Release history and notable changes are maintained in [CHANGELOG.md](CHANGELOG.md).
 
 ## Design notes
 
-Parsing is deliberately deterministic and dependency-light. Malformed records do not become executable content, and unknown structured fields are retained rather than silently discarded. Strict JSON mode reports malformed records while automatic mode can safely treat malformed JSON-looking lines as plain text. Filtering is read-only and explicit; aggregation and detection operate only on normalized events selected by the analyst. Detection rules use visible thresholds and a documented scoring formula so findings are reproducible and easy to audit. Machine-readable reports record effective configuration and finding scores. Time-window aggregation is descriptive, UTC-normalized, and excludes untimestamped records without discarding them from other analysis. Report serialization is kept separate from analysis and preserves configuration and baseline context across reusable JSON and CSV formats.
+Parsing is deliberately deterministic and dependency-light. Malformed records do not become executable content, and unknown structured fields are retained rather than silently discarded. Strict JSON and RFC 5424 modes report malformed records while automatic mode remains conservative about input contracts. Filtering is read-only and explicit; aggregation and detection operate only on normalized events selected by the analyst. Detection rules use visible thresholds and a documented scoring formula so findings are reproducible and easy to audit. Machine-readable reports record effective configuration and finding scores. Time-window aggregation is descriptive, UTC-normalized, and excludes untimestamped records without discarding them from other analysis. Report serialization is kept separate from analysis and preserves configuration and baseline context across reusable JSON and CSV formats.
 
 ## Development
 
-The project favors readable Python, deterministic behavior, useful tests, and documentation that makes every detection understandable. CLI integration tests exercise the public command surface without network access, including report formats, filters, malformed strict-JSON input, and missing-file behavior.
+The project favors readable Python, deterministic behavior, useful tests, and documentation that makes every detection understandable. CLI integration tests exercise the public command surface without network access, including report formats, filters, malformed strict-mode input, and missing-file behavior.
 
 ## License
 
