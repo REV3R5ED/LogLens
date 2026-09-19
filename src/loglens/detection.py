@@ -53,6 +53,17 @@ def _escape_controls(value: str) -> str:
     return "".join(parts)
 
 
+_MAX_FINDING_CONTEXT = 240
+
+
+def _safe_context(value: str) -> str:
+    """Escape control characters and bound untrusted finding context."""
+    escaped = _escape_controls(value)
+    if len(escaped) <= _MAX_FINDING_CONTEXT:
+        return escaped
+    return escaped[: _MAX_FINDING_CONTEXT - 3] + "..."
+
+
 def _detect_elevated_errors(events: list[LogEvent], threshold: int) -> list[Finding]:
     """Detect elevated error counts per logical source."""
     totals = Counter(event.source for event in events)
@@ -65,7 +76,7 @@ def _detect_elevated_errors(events: list[LogEvent], threshold: int) -> list[Find
     for source, count in sorted(errors.items(), key=lambda item: item[0] or ""):
         if count >= threshold:
             score = _score(count, threshold, totals[source])
-            context = f" [{_escape_controls(source)}]" if source else ""
+            context = f" [{_safe_context(source)}]" if source else ""
             findings.append(
                 Finding(
                     "elevated-errors",
@@ -98,7 +109,7 @@ def _detect_error_bursts(events: list[LogEvent], threshold: int, window_seconds:
             best = max(best, right - left + 1)
         if best >= threshold:
             score = _score(best, threshold, source_totals[source])
-            context = f" [{_escape_controls(source)}]" if source else ""
+            context = f" [{_safe_context(source)}]" if source else ""
             findings.append(Finding("error-burst", _severity(score), f"Error burst{context} within {window_seconds}s window", best, score))
     return findings
 
@@ -119,8 +130,8 @@ def detect_anomalies(events: Iterable[LogEvent], *, error_threshold: int = 5, re
     for (source, level, message), count in sorted(messages.items(), key=lambda item: ((item[0][0] or ""), item[0][1], item[0][2])):
         if count >= repeat_threshold:
             score = _score(count, repeat_threshold, scope_totals[(source, level)])
-            source_context = f" [{_escape_controls(source)}]" if source else ""
-            findings.append(Finding("repeated-message", _severity(score), f"Repeated message{source_context}: {_escape_controls(message)}", count, score))
+            source_context = f" [{_safe_context(source)}]" if source else ""
+            findings.append(Finding("repeated-message", _severity(score), f"Repeated message{source_context}: {_safe_context(message)}", count, score))
 
     findings.extend(_detect_error_bursts(materialized, burst_threshold, burst_window_seconds))
     return findings
