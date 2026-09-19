@@ -201,6 +201,16 @@ def _logfmt_timestamp(tokens: list[str]) -> datetime | None:
     return None
 
 
+def _logfmt_source(tokens: list[str]) -> str | None:
+    """Read a conservative logical source from common logfmt keys."""
+    for token in tokens:
+        key, separator, value = token.partition("=")
+        if separator and key.strip().lower() in {"source", "service", "component", "logger"}:
+            candidate = value.strip("[],'\"").strip()
+            if candidate: return candidate
+    return None
+
+
 def parse_text_line(line: str, *, source: str | None = None) -> LogEvent:
     message = line.rstrip("\r\n")
     raw_tokens = message.split()
@@ -210,7 +220,8 @@ def parse_text_line(line: str, *, source: str | None = None) -> LogEvent:
         candidate = _text_level(token)
         if candidate != "UNKNOWN": level = candidate; break
     timestamp = _leading_text_timestamp(message) or _logfmt_timestamp(raw_tokens)
-    return LogEvent(message=message, level=level, timestamp=timestamp, source=source)
+    logical_source = _logfmt_source(raw_tokens) or source
+    return LogEvent(message=message, level=level, timestamp=timestamp, source=logical_source)
 
 
 def parse_line(line: str, *, source: str | None = None, format: str = "auto") -> LogEvent:
