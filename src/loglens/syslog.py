@@ -115,9 +115,10 @@ def parse_rfc5424_line(line: str, *, source: str | None = None) -> LogEvent:
     sd_end = _structured_data_end(body)
     if sd_end is None:
         raise ValueError("invalid RFC5424 structured data")
-    message = body[sd_end:]
-    if message.startswith(" "):
-        message = message[1:]
+    remainder = body[sd_end:]
+    if remainder and not remainder.startswith(" "):
+        raise ValueError("RFC5424 message must be separated from structured data by a space")
+    message = remainder[1:] if remainder else ""
 
     app = match.group("app")
     hostname = match.group("hostname")
