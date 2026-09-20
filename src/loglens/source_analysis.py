@@ -5,10 +5,12 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from typing import Iterable
+import unicodedata
 
 from .model import LogEvent
 
 _ERROR_LEVELS = {"ERROR", "CRITICAL", "FATAL"}
+_UNSAFE_SOURCE_CATEGORIES = {"Cc", "Cf", "Zl", "Zp"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,22 +34,30 @@ class SourceHealth:
 
 
 def _normalized_source(source: str | None) -> str:
-    """Return a stable display key without hiding missing source metadata."""
+    """Return a stable display key without hiding missing source metadata.
+
+    Invisible Unicode control/format characters are removed before grouping so
+    they cannot split one logical source into visually indistinguishable health
+    records. This includes bidi controls, zero-width format characters, and
+    Unicode line/paragraph separators.
+    """
     if source is None:
         return "<unknown>"
-    normalized = source.strip()
+    normalized = "".join(
+        char for char in source if unicodedata.category(char) not in _UNSAFE_SOURCE_CATEGORIES
+    ).strip()
     return normalized or "<unknown>"
 
 
 def summarize_sources(events: Iterable[LogEvent]) -> list[SourceHealth]:
     """Return stable per-source event/error distributions.
 
-    Source identifiers are trimmed before grouping so incidental surrounding
-    whitespace cannot split one logical source into multiple health records.
-    Missing or whitespace-only source metadata is grouped under ``<unknown>``
-    rather than discarded. Error rate is a deterministic fraction in the
-    inclusive 0..1 range. The function is read-only and performs no network or
-    filesystem I/O.
+    Source identifiers are trimmed and stripped of invisible Unicode controls
+    before grouping so incidental whitespace or display controls cannot split
+    one logical source into multiple health records. Missing or empty source
+    metadata is grouped under ``<unknown>`` rather than discarded. Error rate
+    is a deterministic fraction in the inclusive 0..1 range. The function is
+    read-only and performs no network or filesystem I/O.
     """
     grouped: dict[str, list[LogEvent]] = defaultdict(list)
     for event in events:
