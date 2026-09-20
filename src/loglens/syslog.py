@@ -29,6 +29,7 @@ _HEADER_LIMITS = {
     "msgid": 32,
 }
 _SD_NAME_FORBIDDEN = {' ', '=', ']', '"'}
+_UTF8_BOM = "\ufeff"
 
 
 def _valid_sd_name(value: str) -> bool:
@@ -181,6 +182,9 @@ def parse_rfc5424_line(line: str, *, source: str | None = None) -> LogEvent:
     if remainder and not remainder.startswith(" "):
         raise ValueError("RFC5424 message must be separated from structured data by a space")
     message = remainder[1:] if remainder else ""
+    has_utf8_bom = message.startswith(_UTF8_BOM)
+    if has_utf8_bom:
+        message = message[len(_UTF8_BOM):]
 
     app = match.group("app")
     hostname = match.group("hostname")
@@ -191,6 +195,8 @@ def parse_rfc5424_line(line: str, *, source: str | None = None) -> LogEvent:
         "syslog_priority": pri,
         "syslog_version": version,
     }
+    if has_utf8_bom:
+        fields["syslog_utf8_bom"] = True
     if structured_data != "-":
         fields["syslog_structured_data"] = structured_data
     for key in ("hostname", "app", "procid", "msgid"):
