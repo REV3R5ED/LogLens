@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Iterable
 
 from .model import LogEvent
@@ -64,6 +64,13 @@ def _safe_context(value: str) -> str:
     return escaped[: _MAX_FINDING_CONTEXT - 3] + "..."
 
 
+def _utc_timestamp(value: datetime) -> datetime:
+    """Normalize event timestamps for deterministic cross-offset comparisons."""
+    if value.utcoffset() is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
 def _detect_elevated_errors(events: list[LogEvent], threshold: int) -> list[Finding]:
     """Detect elevated error counts per logical source."""
     totals = Counter(event.source for event in events)
@@ -92,19 +99,19 @@ def _detect_elevated_errors(events: list[LogEvent], threshold: int) -> list[Find
 def _detect_error_bursts(events: list[LogEvent], threshold: int, window_seconds: int) -> list[Finding]:
     """Detect dense error windows per source without requiring ordered input."""
     source_totals = Counter(event.source for event in events)
-    errors_by_source: dict[str | None, list[LogEvent]] = defaultdict(list)
+    errors_by_source: dict[str | None, list[datetime]] = defaultdict(list)
     for event in events:
         if event.timestamp is not None and event.level.upper() in {"ERROR", "CRITICAL", "FATAL"}:
-            errors_by_source[event.source].append(event)
+            errors_by_source[event.source].append(_utc_timestamp(event.timestamp))
 
     findings: list[Finding] = []
     window = timedelta(seconds=window_seconds)
-    for source, scoped in sorted(errors_by_source.items(), key=lambda item: item[0] or ""):
-        ordered = sorted(scoped, key=lambda event: event.timestamp)  # type: ignore[arg-type]
+    for source, timestamps in sorted(errors_by_source.items(), key=lambda item: item[0] or ""):
+        ordered = sorted(timestamps)
         left = 0
         best = 0
-        for right, event in enumerate(ordered):
-            while event.timestamp - ordered[left].timestamp > window:  # type: ignore[operator]
+        for right, timestamp in enumerate(ordered):
+            while timestamp - ordered[left] > window:
                 left += 1
             best = max(best, right - left + 1)
         if best >= threshold:
