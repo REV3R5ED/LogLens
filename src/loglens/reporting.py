@@ -15,6 +15,11 @@ def report_to_json(report: Mapping[str, Any]) -> str:
     return json.dumps(report, indent=2, sort_keys=True, allow_nan=False)
 
 
+def _compact_json(value: Any) -> str:
+    """Serialize machine-readable CSV subfields as strict, deterministic JSON."""
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)
+
+
 def _escape_csv_controls(value: str) -> str:
     """Keep untrusted text visually explicit and on one physical CSV row."""
     escapes = {"\n": r"\n", "\r": r"\r", "\t": r"\t"}
@@ -64,7 +69,7 @@ def report_to_csv(report: Mapping[str, Any]) -> str:
         for window in windows:
             start = _csv_safe(window.get("start", ""))
             end = _csv_safe(window.get("end", ""))
-            message = json.dumps(window.get("levels", {}), sort_keys=True, separators=(",", ":"))
+            message = _compact_json(window.get("levels", {}))
             writer.writerow((
                 "window", start, _csv_safe(window.get("events", "")),
                 "", _csv_safe(window.get("error_events", "")), _csv_safe(message),
@@ -79,7 +84,7 @@ def report_to_csv(report: Mapping[str, Any]) -> str:
 
     source_health: Sequence[Mapping[str, Any]] = report.get("source_health", ())
     for source in source_health:
-        levels = json.dumps(source.get("levels", {}), sort_keys=True, separators=(",", ":"))
+        levels = _compact_json(source.get("levels", {}))
         writer.writerow((
             "source_health", _csv_safe(source.get("source", "")), _csv_safe(source.get("events", "")),
             _csv_safe(source.get("error_rate", "")), _csv_safe(source.get("error_events", "")), _csv_safe(levels),
