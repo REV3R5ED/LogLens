@@ -76,6 +76,13 @@ def _normalize_level(value: str) -> str:
     return unicodedata.normalize("NFKC", value).strip().upper()
 
 
+def _normalize_message(value: str) -> str:
+    """Canonicalize repeated-message keys without changing visible evidence semantics."""
+    normalized = unicodedata.normalize("NFKC", value)
+    normalized = "".join(char for char in normalized if unicodedata.category(char) not in {"Cf", "Zl", "Zp"})
+    return normalized.strip()
+
+
 _MAX_FINDING_CONTEXT = 240
 
 
@@ -151,7 +158,11 @@ def detect_anomalies(events: Iterable[LogEvent], *, error_threshold: int = 5, re
     findings = _detect_elevated_errors(materialized, error_threshold)
 
     scope_totals = Counter((_normalize_source(event.source), _normalize_level(event.level)) for event in materialized)
-    messages = Counter((_normalize_source(event.source), _normalize_level(event.level), event.message.strip()) for event in materialized if event.message.strip())
+    messages = Counter(
+        (_normalize_source(event.source), _normalize_level(event.level), normalized_message)
+        for event in materialized
+        if (normalized_message := _normalize_message(event.message))
+    )
     for (source, level, message), count in sorted(messages.items(), key=lambda item: ((item[0][0] or ""), item[0][1], item[0][2])):
         if count >= repeat_threshold:
             score = _score(count, repeat_threshold, scope_totals[(source, level)])
