@@ -103,6 +103,25 @@ def test_report_to_csv_escapes_control_characters_without_creating_rows():
     assert len(rendered.splitlines()) == len(rows) + 1
 
 
+def test_report_to_csv_escapes_unicode_format_and_line_separator_controls():
+    report = {
+        "source": "api\u202eexe.log",
+        "events": 1,
+        "levels": {},
+        "sources": {},
+        "findings": [{"rule": "repeat", "count": 2, "severity": "low", "score": 51,
+                      "message": "before\u2066isolated\u2069\u2028after"}],
+    }
+    rendered = report_to_csv(report)
+    rows = _read_csv(rendered)
+    assert rows[0]["value"] == r"api\u202eexe.log"
+    assert rows[-1]["message"] == r"before\u2066isolated\u2069\u2028after"
+    assert "\u202e" not in rendered
+    assert "\u2066" not in rendered
+    assert "\u2069" not in rendered
+    assert "\u2028" not in rendered
+
+
 def test_report_to_csv_preserves_benign_leading_whitespace_and_numeric_values():
     report = {"source": "  normal.log", "events": -1, "levels": {}, "sources": {}, "findings": []}
     rows = _read_csv(report_to_csv(report))

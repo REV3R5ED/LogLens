@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import unicodedata
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -15,13 +16,18 @@ def report_to_json(report: Mapping[str, Any]) -> str:
 
 
 def _escape_csv_controls(value: str) -> str:
-    """Keep untrusted text on one physical CSV row without hiding its content."""
+    """Keep untrusted text visually explicit and on one physical CSV row."""
     escapes = {"\n": r"\n", "\r": r"\r", "\t": r"\t"}
     parts: list[str] = []
     for char in value:
         codepoint = ord(char)
+        category = unicodedata.category(char)
         if codepoint < 32 or codepoint == 127:
             parts.append(escapes.get(char, f"\\x{codepoint:02x}"))
+        elif category in {"Cf", "Zl", "Zp"}:
+            escape = "\\u" if codepoint <= 0xFFFF else "\\U"
+            width = 4 if codepoint <= 0xFFFF else 8
+            parts.append(f"{escape}{codepoint:0{width}x}")
         else:
             parts.append(char)
     return "".join(parts)
