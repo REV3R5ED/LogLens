@@ -110,14 +110,21 @@ def _detect_error_bursts(events: list[LogEvent], threshold: int, window_seconds:
         ordered = sorted(timestamps)
         left = 0
         best = 0
+        best_span = timedelta(0)
         for right, timestamp in enumerate(ordered):
             while timestamp - ordered[left] > window:
                 left += 1
-            best = max(best, right - left + 1)
+            count = right - left + 1
+            span = timestamp - ordered[left]
+            if count > best or (count == best and span < best_span):
+                best = count
+                best_span = span
         if best >= threshold:
             score = _score(best, threshold, source_totals[source])
             context = f" [{_safe_context(source)}]" if source else ""
-            findings.append(Finding("error-burst", _severity(score), f"Error burst{context} within {window_seconds}s window", best, score))
+            observed_seconds = best_span.total_seconds()
+            observed = f"{observed_seconds:g}s"
+            findings.append(Finding("error-burst", _severity(score), f"Error burst{context}: {best} events in {observed} (configured window {window_seconds}s)", best, score))
     return findings
 
 
