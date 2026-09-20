@@ -12,16 +12,16 @@ _PRI_LEVELS = {
     4: "WARN", 5: "NOTICE", 6: "INFO", 7: "DEBUG",
 }
 _HEADER = re.compile(
-    r"^<(?P<pri>\d{1,3})>(?P<version>\d{1,3}) "
+    r"^<(?P<pri>[0-9]{1,3})>(?P<version>[0-9]{1,3}) "
     r"(?P<timestamp>\S+) (?P<hostname>\S+) (?P<app>\S+) "
     r"(?P<procid>\S+) (?P<msgid>\S+) (?P<body>.*)$"
 )
 _RFC5424_TIMESTAMP = re.compile(
-    r"^\d{4}-\d{2}-\d{2}T"
-    r"\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?"
-    r"(?:Z|[+-]\d{2}:\d{2})$"
+    r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T"
+    r"[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,6})?"
+    r"(?:Z|[+-][0-9]{2}:[0-9]{2})$"
 )
-_RFC5424_VERSION = re.compile(r"^[1-9]\d{0,2}$")
+_RFC5424_VERSION = re.compile(r"^[1-9][0-9]{0,2}$")
 _HEADER_LIMITS = {
     "hostname": 255,
     "app": 48,

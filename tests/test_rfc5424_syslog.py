@@ -97,6 +97,19 @@ def test_rfc5424_requires_space_before_message(body):
 @pytest.mark.parametrize(
     "line",
     [
+        '<١٤>1 2026-09-19T04:10:11Z host app - - - message',
+        '<14>١ 2026-09-19T04:10:11Z host app - - - message',
+        '<14>1 ٢٠٢٦-09-19T04:10:11Z host app - - - message',
+    ],
+)
+def test_rfc5424_rejects_non_ascii_digits_in_numeric_fields(line):
+    with pytest.raises(ValueError):
+        parse_rfc5424_line(line)
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
         '<999>1 2026-09-19T04:10:11Z host app - - - message',
         '<14>0 2026-09-19T04:10:11Z host app - - - message',
         '<14>1 not-a-time host app - - - message',
