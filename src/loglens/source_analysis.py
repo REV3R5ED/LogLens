@@ -52,16 +52,28 @@ def _normalized_source(source: str | None) -> str:
     return normalized or "<unknown>"
 
 
+def _normalized_level(level: str) -> str:
+    """Return a stable level label for source-health aggregation.
+
+    Parsers normally emit canonical levels, but ``LogEvent`` is also part of the
+    public Python API. Trimming incidental surrounding whitespace before
+    upper-casing prevents equivalent labels such as ``"ERROR"`` and
+    ``" error "`` from splitting counters or bypassing error classification.
+    """
+    return level.strip().upper()
+
+
 def summarize_sources(events: Iterable[LogEvent]) -> list[SourceHealth]:
     """Return stable per-source event/error distributions.
 
     Source identifiers are Unicode-normalized, trimmed, and stripped of
     invisible controls before grouping so equivalent presentation forms,
     incidental whitespace, or display controls cannot split one logical source
-    into multiple health records. Missing or empty source metadata is grouped
-    under ``<unknown>`` rather than discarded. Error rate is a deterministic
-    fraction in the inclusive 0..1 range. The function is read-only and performs
-    no network or filesystem I/O.
+    into multiple health records. Level labels are likewise trimmed and
+    case-normalized before aggregation. Missing or empty source metadata is
+    grouped under ``<unknown>`` rather than discarded. Error rate is a
+    deterministic fraction in the inclusive 0..1 range. The function is
+    read-only and performs no network or filesystem I/O.
     """
     grouped: dict[str, list[LogEvent]] = defaultdict(list)
     for event in events:
@@ -70,7 +82,7 @@ def summarize_sources(events: Iterable[LogEvent]) -> list[SourceHealth]:
     summaries: list[SourceHealth] = []
     for source in sorted(grouped):
         source_events = grouped[source]
-        levels = Counter(event.level.upper() for event in source_events)
+        levels = Counter(_normalized_level(event.level) for event in source_events)
         error_events = sum(levels[level] for level in _ERROR_LEVELS)
         total = len(source_events)
         summaries.append(
