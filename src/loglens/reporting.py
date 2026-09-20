@@ -62,11 +62,15 @@ def report_to_csv(report: Mapping[str, Any]) -> str:
                 writer.writerow(("baseline", name, _csv_safe(baseline[name]), "", "", ""))
         windows: Sequence[Mapping[str, Any]] = baseline.get("windows", ())
         for window in windows:
+            start = _csv_safe(window.get("start", ""))
+            end = _csv_safe(window.get("end", ""))
             message = json.dumps(window.get("levels", {}), sort_keys=True, separators=(",", ":"))
             writer.writerow((
-                "window", _csv_safe(window.get("start", "")), _csv_safe(window.get("events", "")),
+                "window", start, _csv_safe(window.get("events", "")),
                 "", _csv_safe(window.get("error_events", "")), _csv_safe(message),
             ))
+            if end != "":
+                writer.writerow(("window_end", start, end, "", "", ""))
 
     for level, count in sorted(report.get("levels", {}).items()):
         writer.writerow(("level", _csv_safe(level), _csv_safe(count), "", "", ""))
