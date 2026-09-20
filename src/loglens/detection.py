@@ -62,6 +62,20 @@ def _escape_controls(value: str) -> str:
     return "".join(parts)
 
 
+def _normalize_source(value: str | None) -> str | None:
+    """Canonicalize logical source labels before anomaly grouping."""
+    if value is None:
+        return None
+    normalized = unicodedata.normalize("NFKC", value)
+    normalized = "".join(char for char in normalized if unicodedata.category(char) not in {"Cc", "Cf", "Zl", "Zp"}).strip()
+    return normalized or None
+
+
+def _normalize_level(value: str) -> str:
+    """Canonicalize severity labels used by anomaly rules."""
+    return unicodedata.normalize("NFKC", value).strip().upper()
+
+
 _MAX_FINDING_CONTEXT = 240
 
 
@@ -82,8 +96,8 @@ def _utc_timestamp(value: datetime) -> datetime:
 
 def _detect_elevated_errors(events: list[LogEvent], threshold: int) -> list[Finding]:
     """Detect elevated error counts per logical source."""
-    totals = Counter(event.source for event in events)
-    errors = Counter(event.source for event in events if event.level.upper() in {"ERROR", "CRITICAL", "FATAL"})
+    totals = Counter(_normalize_source(event.source) for event in events)
+    errors = Counter(_normalize_source(event.source) for event in events if _normalize_level(event.level) in {"ERROR", "CRITICAL", "FATAL"})
     findings: list[Finding] = []
     for source, count in sorted(errors.items(), key=lambda item: item[0] or ""):
         if count >= threshold:
@@ -95,11 +109,11 @@ def _detect_elevated_errors(events: list[LogEvent], threshold: int) -> list[Find
 
 def _detect_error_bursts(events: list[LogEvent], threshold: int, window_seconds: int) -> list[Finding]:
     """Detect dense error windows per source without requiring ordered input."""
-    source_totals = Counter(event.source for event in events)
+    source_totals = Counter(_normalize_source(event.source) for event in events)
     errors_by_source: dict[str | None, list[datetime]] = defaultdict(list)
     for event in events:
-        if event.timestamp is not None and event.level.upper() in {"ERROR", "CRITICAL", "FATAL"}:
-            errors_by_source[event.source].append(_utc_timestamp(event.timestamp))
+        if event.timestamp is not None and _normalize_level(event.level) in {"ERROR", "CRITICAL", "FATAL"}:
+            errors_by_source[_normalize_source(event.source)].append(_utc_timestamp(event.timestamp))
 
     findings: list[Finding] = []
     window = timedelta(seconds=window_seconds)
@@ -136,8 +150,8 @@ def detect_anomalies(events: Iterable[LogEvent], *, error_threshold: int = 5, re
     materialized = list(events)
     findings = _detect_elevated_errors(materialized, error_threshold)
 
-    scope_totals = Counter((event.source, event.level.upper()) for event in materialized)
-    messages = Counter((event.source, event.level.upper(), event.message.strip()) for event in materialized if event.message.strip())
+    scope_totals = Counter((_normalize_source(event.source), _normalize_level(event.level)) for event in materialized)
+    messages = Counter((_normalize_source(event.source), _normalize_level(event.level), event.message.strip()) for event in materialized if event.message.strip())
     for (source, level, message), count in sorted(messages.items(), key=lambda item: ((item[0][0] or ""), item[0][1], item[0][2])):
         if count >= repeat_threshold:
             score = _score(count, repeat_threshold, scope_totals[(source, level)])
