@@ -12,7 +12,7 @@ def test_detects_source_scoped_error_burst_from_unsorted_events():
     events = [_event(40), _event(0), _event(20), _event(10), _event(30)]
     findings = detect_anomalies(events, error_threshold=99, repeat_threshold=99, burst_threshold=5, burst_window_seconds=60)
     assert [finding.to_dict() for finding in findings] == [{
-        "rule": "error-burst", "severity": "medium", "message": "Error burst [api] within 60s window", "count": 5, "score": 75,
+        "rule": "error-burst", "severity": "medium", "message": "Error burst [api]: 5 events in 40s (configured window 60s)", "count": 5, "score": 75,
     }]
 
 

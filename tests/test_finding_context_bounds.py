@@ -38,6 +38,6 @@ def test_error_burst_source_context_is_bounded():
 
     finding = next(item for item in detect_anomalies(events, burst_threshold=2) if item.rule == "error-burst")
 
-    context = finding.message.split(" [", 1)[1].split("] within", 1)[0]
+    context = finding.message.split(" [", 1)[1].split("]: ", 1)[0]
     assert len(context) == 240
     assert context.endswith("...")
