@@ -1,37 +1,18 @@
-"""Deterministic anomaly rules and transparent scoring for defensive log events."""
+"""Transparent defensive anomaly rules for normalized log events."""
 
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+import math
 import unicodedata
 from typing import Iterable
 
 from .model import LogEvent
+from .reporting import Finding
 
 
-@dataclass(frozen=True, slots=True)
-class Finding:
-    """One explainable anomaly finding produced by a built-in rule."""
-
-    rule: str
-    severity: str
-    message: str
-    count: int
-    score: int
-
-    def to_dict(self) -> dict[str, object]:
-        return {"rule": self.rule, "severity": self.severity, "message": self.message, "count": self.count, "score": self.score}
-
-
-def _score(count: int, threshold: int, total: int) -> int:
-    if total < 1:
-        return 0
-    excess = max(0, count - threshold)
-    excess_points = min(25, round(25 * excess / threshold))
-    prevalence_points = min(25, round(25 * count / total))
-    return min(100, 50 + excess_points + prevalence_points)
+_ERROR_LEVELS = {"ERROR", "CRITICAL", "FATAL"}
 
 
 def _severity(score: int) -> str:
@@ -42,8 +23,17 @@ def _severity(score: int) -> str:
     return "low"
 
 
+def _score(count: int, threshold: int, scope_total: int) -> int:
+    """Score a threshold hit using excess count and within-scope prevalence."""
+    excess = max(0, count - threshold)
+    excess_component = min(25, excess * 5)
+    prevalence = count / max(1, scope_total)
+    prevalence_component = min(25, round(prevalence * 25))
+    return min(100, 50 + excess_component + prevalence_component)
+
+
 def _escape_controls(value: str) -> str:
-    """Render control/format characters visibly so findings cannot spoof reports."""
+    """Render control/format characters visibly so findings stay single-line and safe."""
     parts: list[str] = []
     for char in value:
         codepoint = ord(char)
@@ -77,7 +67,7 @@ def _normalize_level(value: str) -> str:
 
 
 def _normalize_message(value: str) -> str:
-    """Canonicalize repeated-message keys without changing visible evidence semantics."""
+    """Canonicalize repeated-message keys while retaining raw evidence separately."""
     normalized = unicodedata.normalize("NFKC", value)
     normalized = "".join(char for char in normalized if unicodedata.category(char) not in {"Cf", "Zl", "Zp"})
     return normalized.strip()
@@ -102,9 +92,12 @@ def _utc_timestamp(value: datetime) -> datetime:
 
 
 def _detect_elevated_errors(events: list[LogEvent], threshold: int) -> list[Finding]:
-    """Detect elevated error counts per logical source."""
     totals = Counter(_normalize_source(event.source) for event in events)
-    errors = Counter(_normalize_source(event.source) for event in events if _normalize_level(event.level) in {"ERROR", "CRITICAL", "FATAL"})
+    errors = Counter(
+        _normalize_source(event.source)
+        for event in events
+        if _normalize_level(event.level) in _ERROR_LEVELS
+    )
     findings: list[Finding] = []
     for source, count in sorted(errors.items(), key=lambda item: item[0] or ""):
         if count >= threshold:
@@ -115,16 +108,16 @@ def _detect_elevated_errors(events: list[LogEvent], threshold: int) -> list[Find
 
 
 def _detect_error_bursts(events: list[LogEvent], threshold: int, window_seconds: int) -> list[Finding]:
-    """Detect dense error windows per source without requiring ordered input."""
+    by_source: dict[str | None, list[datetime]] = defaultdict(list)
     source_totals = Counter(_normalize_source(event.source) for event in events)
-    errors_by_source: dict[str | None, list[datetime]] = defaultdict(list)
     for event in events:
-        if event.timestamp is not None and _normalize_level(event.level) in {"ERROR", "CRITICAL", "FATAL"}:
-            errors_by_source[_normalize_source(event.source)].append(_utc_timestamp(event.timestamp))
+        if _normalize_level(event.level) not in _ERROR_LEVELS or event.timestamp is None:
+            continue
+        by_source[_normalize_source(event.source)].append(_utc_timestamp(event.timestamp))
 
     findings: list[Finding] = []
     window = timedelta(seconds=window_seconds)
-    for source, timestamps in sorted(errors_by_source.items(), key=lambda item: item[0] or ""):
+    for source, timestamps in sorted(by_source.items(), key=lambda item: item[0] or ""):
         ordered = sorted(timestamps)
         left = 0
         best = 0
@@ -158,16 +151,22 @@ def detect_anomalies(events: Iterable[LogEvent], *, error_threshold: int = 5, re
     findings = _detect_elevated_errors(materialized, error_threshold)
 
     scope_totals = Counter((_normalize_source(event.source), _normalize_level(event.level)) for event in materialized)
-    messages = Counter(
-        (_normalize_source(event.source), _normalize_level(event.level), normalized_message)
-        for event in materialized
-        if (normalized_message := _normalize_message(event.message))
-    )
+    messages: Counter[tuple[str | None, str, str]] = Counter()
+    evidence: dict[tuple[str | None, str, str], str] = {}
+    for event in materialized:
+        normalized_message = _normalize_message(event.message)
+        if not normalized_message:
+            continue
+        key = (_normalize_source(event.source), _normalize_level(event.level), normalized_message)
+        messages[key] += 1
+        evidence.setdefault(key, event.message.strip())
+
     for (source, level, message), count in sorted(messages.items(), key=lambda item: ((item[0][0] or ""), item[0][1], item[0][2])):
         if count >= repeat_threshold:
             score = _score(count, repeat_threshold, scope_totals[(source, level)])
             source_context = f" [{_safe_context(source)}]" if source else ""
-            findings.append(Finding("repeated-message", _severity(score), f"Repeated message{source_context}: {_safe_context(message)}", count, score))
+            display_message = evidence[(source, level, message)]
+            findings.append(Finding("repeated-message", _severity(score), f"Repeated message{source_context}: {_safe_context(display_message)}", count, score))
 
     findings.extend(_detect_error_bursts(materialized, burst_threshold, burst_window_seconds))
     return findings
