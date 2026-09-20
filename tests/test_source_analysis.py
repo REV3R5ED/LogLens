@@ -24,6 +24,36 @@ def test_source_summaries_are_deterministic_and_case_normalized():
     assert api.levels == {"ERROR": 1, "FATAL": 1}
 
 
+def test_source_summaries_trim_and_case_normalize_level_labels():
+    events = [
+        LogEvent("bad", " error ", source="api"),
+        LogEvent("worse", "\tCritical\n", source="api"),
+        LogEvent("fatal", " FATAL", source="api"),
+        LogEvent("ok", " info ", source="api"),
+    ]
+
+    summaries = summarize_sources(events)
+
+    assert summaries[0].levels == {"CRITICAL": 1, "ERROR": 1, "FATAL": 1, "INFO": 1}
+    assert summaries[0].error_events == 3
+    assert summaries[0].error_rate == 0.75
+
+
+def test_concentration_cannot_be_bypassed_by_level_whitespace():
+    events = [
+        LogEvent("bad", " ERROR ", source="api"),
+        LogEvent("bad", "error\t", source="api"),
+        LogEvent("bad", "\nCRITICAL", source="api"),
+        LogEvent("ok", "INFO", source="api"),
+    ]
+
+    findings = concentrated_error_sources(events, min_errors=3, min_error_rate=0.5)
+
+    assert [finding.source for finding in findings] == ["api"]
+    assert findings[0].error_events == 3
+    assert findings[0].error_rate == 0.75
+
+
 def test_source_summaries_trim_identifiers_and_group_blank_sources_as_unknown():
     events = [
         LogEvent("bad", "ERROR", source=" api "),
