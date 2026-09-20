@@ -19,7 +19,7 @@ Current capabilities:
 - preservation of unknown JSON fields for later analysis
 - case-insensitive level and message filtering
 - reusable level/source aggregation and per-source health summaries
-- deterministic anomaly rules for elevated errors and repeated messages
+- deterministic anomaly rules for elevated errors, repeated messages, and timestamp-aware error bursts
 - analyst-configurable detection thresholds with safe validation
 - deterministic UTC time-window baselines for timestamped events
 - transparent 0-100 anomaly scoring with severity derived from score
@@ -85,7 +85,7 @@ LogLens normalizes the timestamp, severity, message and source while retaining f
 
 ## Built-in anomaly rules
 
-The detector intentionally favors explainability over opaque scoring. It reports an `elevated-errors` finding when the configured number of matched events are ERROR/CRITICAL/FATAL, and a `repeated-message` finding when the same non-empty message reaches its configured threshold. Findings include rule name, severity, score, explanation, and observed count in machine-readable reports. These are triage signals, not claims that an incident occurred.
+The detector intentionally favors explainability over opaque scoring. It reports an `elevated-errors` finding when a logical source reaches the configured number of ERROR/CRITICAL/FATAL events, a `repeated-message` finding when the same non-empty message reaches its configured threshold within a source/level scope, and an `error-burst` finding when timestamped error events from one source cluster inside the configured burst window. Burst timestamps are normalized to UTC before comparison, including explicit offsets; offset-less timestamps are treated as UTC consistently with LogLens baseline behavior. Findings include rule name, severity, score, explanation, and observed count in machine-readable reports. These are triage signals, not claims that an incident occurred.
 
 ## Defensive Scope
 
