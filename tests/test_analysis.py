@@ -80,5 +80,24 @@ def test_summarize_sources_keeps_missing_sources_visible():
     }]
 
 
+def test_summarize_sources_normalizes_equivalent_labels_consistently():
+    events = [
+        LogEvent("one", " error ", source="ａｐｉ"),
+        LogEvent("two", "FATAL", source="a\u200bpi"),
+        LogEvent("three", " info\t", source="api"),
+        LogEvent("unknown", " critical ", source="\u202e\u200b"),
+    ]
+    assert [item.to_dict() for item in summarize_sources(events)] == [
+        {
+            "source": "<unknown>", "events": 1, "error_events": 1,
+            "error_rate": 1.0, "levels": {"CRITICAL": 1},
+        },
+        {
+            "source": "api", "events": 3, "error_events": 2,
+            "error_rate": 0.6667, "levels": {"ERROR": 1, "FATAL": 1, "INFO": 1},
+        },
+    ]
+
+
 def test_summarize_sources_empty_stream_is_empty():
     assert summarize_sources([]) == []
