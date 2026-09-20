@@ -16,6 +16,11 @@ def _utc(timestamp: datetime) -> datetime:
     return timestamp.astimezone(timezone.utc)
 
 
+def _normalized_level(level: str) -> str:
+    """Return the canonical level label used by time-window aggregation."""
+    return level.strip().upper()
+
+
 def build_time_windows(events: Iterable[LogEvent], *, window_minutes: int = 5) -> list[dict[str, object]]:
     """Aggregate timestamped events into fixed UTC windows.
 
@@ -43,7 +48,7 @@ def build_time_windows(events: Iterable[LogEvent], *, window_minutes: int = 5) -
     result: list[dict[str, object]] = []
     for start in sorted(buckets):
         bucket = buckets[start]
-        levels = Counter(event.level.upper() for event in bucket)
+        levels = Counter(_normalized_level(event.level) for event in bucket)
         result.append({
             "start": start.isoformat(),
             "end": (start + timedelta(minutes=window_minutes)).isoformat(),

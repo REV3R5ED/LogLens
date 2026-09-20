@@ -31,6 +31,24 @@ def test_builds_deterministic_utc_windows_and_counts_errors():
     ]
 
 
+def test_normalizes_padded_and_mixed_case_levels_before_aggregation():
+    timestamp = datetime(2026, 9, 15, 10, 2, tzinfo=timezone.utc)
+    windows = build_time_windows([
+        LogEvent("one", " error ", timestamp),
+        LogEvent("two", "\tCritical\n", timestamp),
+        LogEvent("three", "fatal", timestamp),
+        LogEvent("four", " info ", timestamp),
+    ])
+
+    assert windows[0]["error_events"] == 3
+    assert windows[0]["levels"] == {
+        "CRITICAL": 1,
+        "ERROR": 1,
+        "FATAL": 1,
+        "INFO": 1,
+    }
+
+
 def test_ignores_events_without_timestamps():
     assert build_time_windows([LogEvent("no timestamp", "INFO")]) == []
 
