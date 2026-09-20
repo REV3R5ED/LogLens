@@ -34,6 +34,28 @@ def test_error_burst_respects_window_boundary():
     assert findings == []
 
 
+def test_error_burst_normalizes_mixed_timezone_offsets():
+    offsets = (timezone.utc, timezone(timedelta(hours=-8)), timezone(timedelta(hours=5, minutes=30)))
+    instants = (0, 10, 20, 30, 40)
+    events = []
+    for index, second in enumerate(instants):
+        utc_value = datetime(2026, 1, 1, tzinfo=timezone.utc) + timedelta(seconds=second)
+        events.append(LogEvent("failure", "ERROR", utc_value.astimezone(offsets[index % len(offsets)]), "api"))
+    findings = detect_anomalies(events, error_threshold=99, repeat_threshold=99, burst_threshold=5, burst_window_seconds=60)
+    assert len(findings) == 1
+    assert findings[0].rule == "error-burst"
+    assert findings[0].count == 5
+
+
+def test_error_burst_treats_naive_timestamp_as_utc():
+    events = [_event(0), _event(10), _event(20), _event(30)]
+    events.append(LogEvent("failure", "ERROR", datetime(2026, 1, 1, 0, 0, 40), "api"))
+    findings = detect_anomalies(events, error_threshold=99, repeat_threshold=99, burst_threshold=5, burst_window_seconds=60)
+    assert len(findings) == 1
+    assert findings[0].rule == "error-burst"
+    assert findings[0].count == 5
+
+
 def test_burst_configuration_validation():
     for kwargs in ({"burst_threshold": 1}, {"burst_window_seconds": 0}, {"burst_threshold": True}, {"burst_window_seconds": 2.5}):
         try:
