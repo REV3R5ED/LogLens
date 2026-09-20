@@ -11,8 +11,8 @@ from typing import Any
 
 
 def report_to_json(report: Mapping[str, Any]) -> str:
-    """Serialize an analysis report as deterministic, human-readable JSON."""
-    return json.dumps(report, indent=2, sort_keys=True)
+    """Serialize an analysis report as deterministic, standards-compliant JSON."""
+    return json.dumps(report, indent=2, sort_keys=True, allow_nan=False)
 
 
 def _escape_csv_controls(value: str) -> str:
