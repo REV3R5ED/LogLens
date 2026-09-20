@@ -47,6 +47,24 @@ def test_rfc5424_preserves_numeric_severity_independently_of_normalized_level(
     assert event.level == level
 
 
+def test_rfc5424_normalizes_leading_utf8_bom_and_preserves_provenance():
+    event = parse_rfc5424_line(
+        '<14>1 2026-09-19T04:10:11Z host app - - - \ufeffcaf\u00e9 ready'
+    )
+
+    assert event.message == 'caf\u00e9 ready'
+    assert event.fields["syslog_utf8_bom"] is True
+
+
+def test_rfc5424_does_not_strip_bom_from_inside_message():
+    event = parse_rfc5424_line(
+        '<14>1 2026-09-19T04:10:11Z host app - - - prefix\ufeffsuffix'
+    )
+
+    assert event.message == 'prefix\ufeffsuffix'
+    assert "syslog_utf8_bom" not in event.fields
+
+
 def test_rfc5424_nil_app_falls_back_to_hostname_then_provenance():
     event = parse_rfc5424_line('<14>1 - host-a - - - - hello', source="input.log")
     assert event.source == "host-a"
