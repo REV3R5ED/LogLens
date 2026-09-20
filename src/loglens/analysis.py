@@ -8,6 +8,7 @@ from typing import Iterable
 import unicodedata
 
 from .model import LogEvent
+from .source_analysis import summarize_sources as summarize_source_health
 
 _UNSAFE_SOURCE_CATEGORIES = {"Cc", "Cf", "Zl", "Zp"}
 
@@ -108,29 +109,20 @@ def summarize(events: Iterable[LogEvent]) -> AnalysisSummary:
 
 
 def summarize_sources(events: Iterable[LogEvent]) -> list[SourceSummary]:
-    """Summarize volume and error concentration for each normalized source.
+    """Summarize volume and error concentration for each logical source.
 
-    Missing/blank source values are retained as ``<unknown>`` so incomplete
-    telemetry stays visible rather than silently disappearing from analysis.
-    ERROR, CRITICAL, and FATAL are treated as error-level events. Results are
-    sorted by source for reproducible JSON/reporting use.
+    This compatibility API delegates grouping and label normalization to the
+    hardened source-health analyzer so reports cannot disagree about equivalent
+    Unicode source identities, invisible controls, missing metadata, or padded
+    level labels. Error rates retain this API's historical four-decimal output.
     """
-    grouped: dict[str, Counter[str]] = {}
-    for event in events:
-        source = event.source.strip() if event.source and event.source.strip() else "<unknown>"
-        levels = grouped.setdefault(source, Counter())
-        levels[event.level.upper()] += 1
-
-    summaries: list[SourceSummary] = []
-    for source in sorted(grouped):
-        levels = grouped[source]
-        total = sum(levels.values())
-        error_events = sum(levels[level] for level in ("ERROR", "CRITICAL", "FATAL"))
-        summaries.append(SourceSummary(
-            source=source,
-            events=total,
-            error_events=error_events,
-            error_rate=round(error_events / total, 4),
-            levels=dict(sorted(levels.items())),
-        ))
-    return summaries
+    return [
+        SourceSummary(
+            source=summary.source,
+            events=summary.events,
+            error_events=summary.error_events,
+            error_rate=round(summary.error_rate, 4),
+            levels=summary.levels,
+        )
+        for summary in summarize_source_health(events)
+    ]
