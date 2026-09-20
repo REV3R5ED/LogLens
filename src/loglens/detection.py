@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+import unicodedata
 from typing import Iterable
 
 from .model import LogEvent
@@ -42,12 +43,20 @@ def _severity(score: int) -> str:
 
 
 def _escape_controls(value: str) -> str:
+    """Render control/format characters visibly so findings cannot spoof reports."""
     parts: list[str] = []
     for char in value:
         codepoint = ord(char)
-        if codepoint < 32 or codepoint == 127:
-            escapes = {"\n": r"\n", "\r": r"\r", "\t": r"\t"}
-            parts.append(escapes.get(char, f"\\x{codepoint:02x}"))
+        category = unicodedata.category(char)
+        if char in {"\n", "\r", "\t"}:
+            parts.append({"\n": r"\n", "\r": r"\r", "\t": r"\t"}[char])
+        elif category in {"Cc", "Cf", "Zl", "Zp"}:
+            if codepoint <= 0xFF:
+                parts.append(f"\\x{codepoint:02x}")
+            elif codepoint <= 0xFFFF:
+                parts.append(f"\\u{codepoint:04x}")
+            else:
+                parts.append(f"\\U{codepoint:08x}")
         else:
             parts.append(char)
     return "".join(parts)
@@ -74,25 +83,13 @@ def _utc_timestamp(value: datetime) -> datetime:
 def _detect_elevated_errors(events: list[LogEvent], threshold: int) -> list[Finding]:
     """Detect elevated error counts per logical source."""
     totals = Counter(event.source for event in events)
-    errors = Counter(
-        event.source
-        for event in events
-        if event.level.upper() in {"ERROR", "CRITICAL", "FATAL"}
-    )
+    errors = Counter(event.source for event in events if event.level.upper() in {"ERROR", "CRITICAL", "FATAL"})
     findings: list[Finding] = []
     for source, count in sorted(errors.items(), key=lambda item: item[0] or ""):
         if count >= threshold:
             score = _score(count, threshold, totals[source])
             context = f" [{_safe_context(source)}]" if source else ""
-            findings.append(
-                Finding(
-                    "elevated-errors",
-                    _severity(score),
-                    f"Elevated error-level event count{context}",
-                    count,
-                    score,
-                )
-            )
+            findings.append(Finding("elevated-errors", _severity(score), f"Elevated error-level event count{context}", count, score))
     return findings
 
 
