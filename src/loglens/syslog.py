@@ -169,7 +169,8 @@ def parse_rfc5424_line(line: str, *, source: str | None = None) -> LogEvent:
         raise ValueError("RFC5424 VERSION must be 1-999 without leading zeros")
     version = int(version_text)
 
-    timestamp = _parse_timestamp(match.group("timestamp"))
+    timestamp_text = match.group("timestamp")
+    timestamp = _parse_timestamp(timestamp_text)
     for name in _HEADER_LIMITS:
         _validate_header_field(name, match.group(name))
 
@@ -195,6 +196,8 @@ def parse_rfc5424_line(line: str, *, source: str | None = None) -> LogEvent:
         "syslog_priority": pri,
         "syslog_version": version,
     }
+    if timestamp_text != "-":
+        fields["syslog_timestamp"] = timestamp_text
     if has_utf8_bom:
         fields["syslog_utf8_bom"] = True
     if structured_data != "-":
