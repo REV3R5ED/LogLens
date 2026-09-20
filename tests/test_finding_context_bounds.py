@@ -16,6 +16,22 @@ def test_repeated_message_context_is_bounded_and_escaped():
     assert "\n" not in context
 
 
+def test_unicode_format_and_line_controls_are_escaped_in_findings():
+    message = "login\u202ereversed\u202c\u2028next"
+    source = "api\u2066spoof\u2069"
+    events = [LogEvent(message=message, level="WARN", source=source) for _ in range(2)]
+
+    finding = next(item for item in detect_anomalies(events, repeat_threshold=2) if item.rule == "repeated-message")
+
+    assert "\\u202e" in finding.message
+    assert "\\u202c" in finding.message
+    assert "\\u2028" in finding.message
+    assert "\\u2066" in finding.message
+    assert "\\u2069" in finding.message
+    assert "\u202e" not in finding.message
+    assert "\u2028" not in finding.message
+
+
 def test_source_context_is_bounded_for_error_findings():
     source = "service-" + "x" * 300
     events = [LogEvent(message="failed", level="ERROR", source=source) for _ in range(2)]
