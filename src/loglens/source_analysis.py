@@ -31,16 +31,27 @@ class SourceHealth:
         }
 
 
+def _normalized_source(source: str | None) -> str:
+    """Return a stable display key without hiding missing source metadata."""
+    if source is None:
+        return "<unknown>"
+    normalized = source.strip()
+    return normalized or "<unknown>"
+
+
 def summarize_sources(events: Iterable[LogEvent]) -> list[SourceHealth]:
     """Return stable per-source event/error distributions.
 
-    Events without source metadata are grouped under ``<unknown>`` rather than
-    discarded. Error rate is a deterministic fraction in the inclusive 0..1
-    range. The function is read-only and performs no network or filesystem I/O.
+    Source identifiers are trimmed before grouping so incidental surrounding
+    whitespace cannot split one logical source into multiple health records.
+    Missing or whitespace-only source metadata is grouped under ``<unknown>``
+    rather than discarded. Error rate is a deterministic fraction in the
+    inclusive 0..1 range. The function is read-only and performs no network or
+    filesystem I/O.
     """
     grouped: dict[str, list[LogEvent]] = defaultdict(list)
     for event in events:
-        grouped[event.source or "<unknown>"].append(event)
+        grouped[_normalized_source(event.source)].append(event)
 
     summaries: list[SourceHealth] = []
     for source in sorted(grouped):
