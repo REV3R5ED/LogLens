@@ -5,8 +5,27 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass, field
 from typing import Iterable
+import unicodedata
 
 from .model import LogEvent
+
+_UNSAFE_SOURCE_CATEGORIES = {"Cc", "Cf", "Zl", "Zp"}
+
+
+def _filter_source_key(source: str | None) -> str:
+    """Return a stable case-insensitive key for source filtering."""
+    if source is None:
+        return "<unknown>"
+    source = unicodedata.normalize("NFKC", source)
+    normalized = "".join(
+        char for char in source if unicodedata.category(char) not in _UNSAFE_SOURCE_CATEGORIES
+    ).strip()
+    return (normalized or "<unknown>").casefold()
+
+
+def _filter_level_key(level: str) -> str:
+    """Normalize incidental whitespace/casing in a level filter key."""
+    return level.strip().upper()
 
 
 @dataclass(slots=True)
@@ -60,21 +79,22 @@ def filter_events(
 ) -> list[LogEvent]:
     """Return events matching optional level, message, and source filters.
 
-    Source matching is case-insensitive and exact after trimming whitespace.
-    Events without a logical source can be selected explicitly with
-    ``<unknown>`` so incomplete telemetry remains queryable.
+    Level matching is case-insensitive after trimming incidental whitespace.
+    Source matching is case-insensitive after Unicode compatibility
+    normalization, removal of invisible/control formatting characters, and
+    whitespace trimming. Events without a logical source can be selected
+    explicitly with ``<unknown>`` so incomplete telemetry remains queryable.
     """
-    normalized_levels = {level.upper() for level in levels} if levels else None
-    normalized_sources = {source.strip().casefold() for source in sources} if sources else None
+    normalized_levels = {_filter_level_key(level) for level in levels} if levels else None
+    normalized_sources = {_filter_source_key(source) for source in sources} if sources else None
     needle = contains.casefold() if contains else None
     matched: list[LogEvent] = []
     for event in events:
-        if normalized_levels is not None and event.level.upper() not in normalized_levels:
+        if normalized_levels is not None and _filter_level_key(event.level) not in normalized_levels:
             continue
         if needle is not None and needle not in event.message.casefold():
             continue
-        event_source = event.source.strip() if event.source and event.source.strip() else "<unknown>"
-        if normalized_sources is not None and event_source.casefold() not in normalized_sources:
+        if normalized_sources is not None and _filter_source_key(event.source) not in normalized_sources:
             continue
         matched.append(event)
     return matched

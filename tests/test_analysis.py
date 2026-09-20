@@ -7,6 +7,25 @@ def test_filter_events_matches_levels_case_insensitively():
     assert filter_events(events, levels={"error"}) == [events[1]]
 
 
+def test_filter_events_normalizes_level_whitespace():
+    events = [LogEvent("failed", " error\t"), LogEvent("ok", " INFO ")]
+    assert filter_events(events, levels={" ERROR "}) == [events[0]]
+
+
+def test_filter_events_normalizes_equivalent_source_identities():
+    events = [
+        LogEvent("one", "INFO", source="ａｐｉ"),
+        LogEvent("two", "WARN", source="a\u200bpi"),
+        LogEvent("three", "ERROR", source="worker"),
+    ]
+    assert filter_events(events, sources={" api "}) == events[:2]
+
+
+def test_filter_events_treats_control_only_source_as_unknown():
+    event = LogEvent("missing source", "WARN", source="\u202e\u200b")
+    assert filter_events([event], sources={"<unknown>"}) == [event]
+
+
 def test_filter_events_combines_level_and_message_filters():
     events = [
         LogEvent("database timeout", "ERROR"),
