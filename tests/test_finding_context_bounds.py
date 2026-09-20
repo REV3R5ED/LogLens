@@ -23,11 +23,14 @@ def test_unicode_format_and_line_controls_are_escaped_in_findings():
 
     finding = next(item for item in detect_anomalies(events, repeat_threshold=2) if item.rule == "repeated-message")
 
+    # Message context preserves evidence but renders Unicode controls visibly;
+    # source identity intentionally strips controls during canonicalization.
     assert "\\u202e" in finding.message
     assert "\\u202c" in finding.message
     assert "\\u2028" in finding.message
-    assert "\\u2066" in finding.message
-    assert "\\u2069" in finding.message
+    assert "[apispoof]" in finding.message
+    assert "\u2066" not in finding.message
+    assert "\u2069" not in finding.message
     assert "\u202e" not in finding.message
     assert "\u2028" not in finding.message
 

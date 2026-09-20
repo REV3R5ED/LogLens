@@ -16,6 +16,35 @@ def test_elevated_errors_are_scoped_by_source():
     assert detect_anomalies(events, error_threshold=5) == []
 
 
+def test_elevated_errors_group_equivalent_source_and_level_labels():
+    events = [
+        LogEvent(f"failure {i}", level, source=source)
+        for i, (level, source) in enumerate([
+            (" error ", " api "), ("ERROR", "ａｐｉ"), ("\tcritical\n", "a\u200bpi"),
+            ("ＦＡＴＡＬ", "api"), ("Error", "api"),
+        ])
+    ]
+    finding = detect_anomalies(events, repeat_threshold=10, burst_threshold=10)[0]
+    assert finding.rule == "elevated-errors"
+    assert finding.message == "Elevated error-level event count [api]"
+    assert finding.count == 5
+
+
+def test_repeated_messages_group_equivalent_source_and_level_labels():
+    events = [
+        LogEvent("retry", level, source=source)
+        for level, source in [
+            (" warn ", " api "), ("WARN", "ａｐｉ"), ("Warn", "a\u200bpi"),
+            ("ＷＡＲＮ", "api"), ("\twarn\n", "api"),
+        ]
+    ]
+    findings = detect_anomalies(events, error_threshold=10, repeat_threshold=5, burst_threshold=10)
+    assert len(findings) == 1
+    assert findings[0].rule == "repeated-message"
+    assert findings[0].message == "Repeated message [api]: retry"
+    assert findings[0].count == 5
+
+
 def test_elevated_error_finding_exposes_source_context_and_scope_prevalence():
     events = [LogEvent(f"failure {i}", "ERROR", source="api") for i in range(5)] + [LogEvent(f"normal {i}", "INFO", source="worker") for i in range(95)]
     finding = detect_anomalies(events)[0]
@@ -29,8 +58,7 @@ def test_elevated_error_finding_exposes_source_context_and_scope_prevalence():
 def test_elevated_error_source_context_escapes_ascii_controls():
     events = [LogEvent(f"failure {i}", "ERROR", source="api\nnode") for i in range(5)]
     finding = detect_anomalies(events)[0]
-    assert finding.message == r"Elevated error-level event count [api\nnode]"
-    assert "\n" not in finding.message
+    assert finding.message == "Elevated error-level event count [apinode]"
 
 
 def test_score_increases_with_threshold_excess_and_is_bounded():
@@ -95,7 +123,7 @@ def test_low_prevalence_threshold_hit_stays_low_severity():
 def test_repeated_message_finding_escapes_ascii_controls():
     events = [LogEvent("failed\n\x1b[31m\trequest\x00", "WARN", source="api\rnode") for _ in range(5)]
     finding = detect_anomalies(events)[0]
-    assert finding.message == r"Repeated message [api\rnode]: failed\n\x1b[31m\trequest\x00"
+    assert finding.message == r"Repeated message [apinode]: failed\n\x1b[31m\trequest\x00"
     assert "\n" not in finding.message
     assert "\x1b" not in finding.message
     assert "\x00" not in finding.message
