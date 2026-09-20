@@ -22,7 +22,7 @@ def test_error_burst_score_uses_all_events_in_source_scope():
     assert len(findings) == 1
     finding = findings[0]
     assert finding.rule == "error-burst"
-    assert finding.message == "Error burst [api] within 60s window"
+    assert finding.message == "Error burst [api]: 5 events in 4s (configured window 60s)"
     assert finding.count == 5
     assert finding.score == 51
     assert finding.severity == "low"
