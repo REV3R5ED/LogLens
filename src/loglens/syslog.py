@@ -11,6 +11,17 @@ _PRI_LEVELS = {
     0: "CRITICAL", 1: "CRITICAL", 2: "CRITICAL", 3: "ERROR",
     4: "WARN", 5: "NOTICE", 6: "INFO", 7: "DEBUG",
 }
+_SYSLOG_SEVERITY_NAMES = {
+    0: "emergency", 1: "alert", 2: "critical", 3: "error",
+    4: "warning", 5: "notice", 6: "informational", 7: "debug",
+}
+_SYSLOG_FACILITY_NAMES = {
+    0: "kernel", 1: "user", 2: "mail", 3: "system", 4: "security",
+    5: "syslog", 6: "printer", 7: "network-news", 8: "uucp", 9: "clock",
+    10: "security-2", 11: "ftp", 12: "ntp", 13: "log-audit", 14: "log-alert",
+    15: "clock-2", 16: "local0", 17: "local1", 18: "local2", 19: "local3",
+    20: "local4", 21: "local5", 22: "local6", 23: "local7",
+}
 _HEADER = re.compile(
     r"^<(?P<pri>[0-9]{1,3})>(?P<version>[0-9]{1,3}) "
     r"(?P<timestamp>\S+) (?P<hostname>\S+) (?P<app>\S+) "
@@ -163,6 +174,7 @@ def parse_rfc5424_line(line: str, *, source: str | None = None) -> LogEvent:
     if not 0 <= pri <= 191:
         raise ValueError("RFC5424 PRI must be between 0 and 191")
     severity = pri % 8
+    facility = pri // 8
 
     version_text = match.group("version")
     if _RFC5424_VERSION.fullmatch(version_text) is None:
@@ -191,8 +203,10 @@ def parse_rfc5424_line(line: str, *, source: str | None = None) -> LogEvent:
     hostname = match.group("hostname")
     logical_source = app if app != "-" else (hostname if hostname != "-" else source)
     fields = {
-        "syslog_facility": pri // 8,
+        "syslog_facility": facility,
+        "syslog_facility_name": _SYSLOG_FACILITY_NAMES[facility],
         "syslog_severity": severity,
+        "syslog_severity_name": _SYSLOG_SEVERITY_NAMES[severity],
         "syslog_priority": pri,
         "syslog_version": version,
     }
