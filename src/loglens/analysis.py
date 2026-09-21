@@ -13,15 +13,20 @@ from .source_analysis import summarize_sources as summarize_source_health
 _UNSAFE_SOURCE_CATEGORIES = {"Cc", "Cf", "Zl", "Zp"}
 
 
-def _filter_source_key(source: str | None) -> str:
-    """Return a stable case-insensitive key for source filtering."""
+def _normalized_source(source: str | None) -> str:
+    """Return a stable display identity for source filtering and aggregation."""
     if source is None:
         return "<unknown>"
     source = unicodedata.normalize("NFKC", source)
     normalized = "".join(
         char for char in source if unicodedata.category(char) not in _UNSAFE_SOURCE_CATEGORIES
     ).strip()
-    return (normalized or "<unknown>").casefold()
+    return normalized or "<unknown>"
+
+
+def _filter_source_key(source: str | None) -> str:
+    """Return a stable case-insensitive key for source filtering."""
+    return _normalized_source(source).casefold()
 
 
 def _filter_level_key(level: str) -> str:
@@ -39,9 +44,9 @@ class AnalysisSummary:
 
     def add(self, event: LogEvent) -> None:
         self.total += 1
-        self.levels[event.level] += 1
-        if event.source:
-            self.sources[event.source] += 1
+        self.levels[_filter_level_key(event.level)] += 1
+        source = _normalized_source(event.source)
+        self.sources[source] += 1
 
     def to_dict(self) -> dict[str, object]:
         return {

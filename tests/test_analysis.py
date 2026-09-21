@@ -59,6 +59,20 @@ def test_summarize_counts_levels_and_sources():
     }
 
 
+def test_summarize_normalizes_labels_and_keeps_unknown_sources_visible():
+    events = [
+        LogEvent("one", " error ", source="ａｐｉ"),
+        LogEvent("two", "ＥＲＲＯＲ", source="a\u200bpi"),
+        LogEvent("three", " info\t", source="\u202e\u200b"),
+        LogEvent("four", "ＩＮＦＯ"),
+    ]
+    assert summarize(events).to_dict() == {
+        "events": 4,
+        "levels": {"ERROR": 2, "INFO": 2},
+        "sources": {"<unknown>": 2, "api": 2},
+    }
+
+
 def test_summarize_empty_stream():
     assert summarize([]).to_dict() == {"events": 0, "levels": {}, "sources": {}}
 
