@@ -14,6 +14,7 @@ def _normalize_source(value: str | None) -> str | None:
         return None
     normalized = unicodedata.normalize("NFKC", value)
     safe: list[str] = []
+    separator_boundary = False
     for char in normalized:
         category = unicodedata.category(char)
         if category == "Cf":
@@ -21,10 +22,16 @@ def _normalize_source(value: str | None) -> str | None:
         if category in _SOURCE_SEPARATOR_CATEGORIES:
             # Preserve a visible identity boundary without globally collapsing
             # ordinary whitespace that callers may intentionally retain.
-            if not safe or safe[-1] != " ":
+            if not safe or not safe[-1].isspace():
                 safe.append(" ")
-        else:
-            safe.append(char)
+            separator_boundary = True
+            continue
+        if separator_boundary and char.isspace():
+            # Whitespace adjacent to a structural separator is already
+            # represented by the synthetic boundary above.
+            continue
+        separator_boundary = False
+        safe.append(char)
     normalized = "".join(safe).strip()
     return normalized or None
 
