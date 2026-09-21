@@ -12,6 +12,16 @@ def test_filter_events_normalizes_level_whitespace():
     assert filter_events(events, levels={" ERROR "}) == [events[0]]
 
 
+def test_filter_events_normalizes_unicode_level_variants():
+    events = [
+        LogEvent("failed", "ＥＲＲＯＲ"),
+        LogEvent("fatal", "ＦＡＴＡＬ"),
+        LogEvent("ok", "ＩＮＦＯ"),
+    ]
+    assert filter_events(events, levels={" error ", "fatal"}) == events[:2]
+    assert filter_events(events, levels={"ＥＲＲＯＲ"}) == [events[0]]
+
+
 def test_filter_events_normalizes_equivalent_source_identities():
     events = [
         LogEvent("one", "INFO", source="ａｐｉ"),
