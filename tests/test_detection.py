@@ -55,10 +55,10 @@ def test_elevated_error_finding_exposes_source_context_and_scope_prevalence():
     assert finding.severity == "medium"
 
 
-def test_elevated_error_source_context_escapes_ascii_controls():
+def test_elevated_error_source_context_preserves_ascii_control_boundary():
     events = [LogEvent(f"failure {i}", "ERROR", source="api\nnode") for i in range(5)]
     finding = detect_anomalies(events)[0]
-    assert finding.message == "Elevated error-level event count [apinode]"
+    assert finding.message == "Elevated error-level event count [api node]"
 
 
 def test_score_increases_with_threshold_excess_and_is_bounded():
@@ -123,7 +123,7 @@ def test_low_prevalence_threshold_hit_stays_low_severity():
 def test_repeated_message_finding_escapes_ascii_controls():
     events = [LogEvent("failed\n\x1b[31m\trequest\x00", "WARN", source="api\rnode") for _ in range(5)]
     finding = detect_anomalies(events)[0]
-    assert finding.message == r"Repeated message [apinode]: failed\n\x1b[31m\trequest\x00"
+    assert finding.message == r"Repeated message [api node]: failed\n\x1b[31m\trequest\x00"
     assert "\n" not in finding.message
     assert "\x1b" not in finding.message
     assert "\x00" not in finding.message
