@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import unicodedata
 from datetime import datetime, timezone
 from typing import Any
 
@@ -47,7 +48,7 @@ def _unix_micro_timestamp(value: Any) -> datetime | None:
 
 
 def _level(value: Any) -> str:
-    candidate = str(value).strip().upper()
+    candidate = unicodedata.normalize("NFKC", str(value)).strip().upper()
     return _LEVEL_ALIASES.get(candidate, candidate if candidate in _LEVELS else "UNKNOWN")
 
 
