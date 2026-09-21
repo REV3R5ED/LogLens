@@ -10,7 +10,7 @@ import unicodedata
 from .model import LogEvent
 
 _ERROR_LEVELS = {"ERROR", "CRITICAL", "FATAL"}
-_UNSAFE_SOURCE_CATEGORIES = {"Cc", "Cf", "Zl", "Zp"}
+_SOURCE_SEPARATOR_CATEGORIES = {"Cc", "Zl", "Zp"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,20 +36,25 @@ class SourceHealth:
 def _normalized_source(source: str | None) -> str:
     """Return a stable display key without hiding missing source metadata.
 
-    Unicode compatibility normalization is applied before unsafe controls are
-    removed so canonically or compatibility-equivalent identifiers cannot split
-    one logical source into multiple health records. This also collapses common
-    presentation variants such as full-width ASCII source names. Bidi controls,
-    zero-width format characters, and Unicode line/paragraph separators are
-    then removed before surrounding whitespace is trimmed.
+    Unicode compatibility normalization is applied first. Invisible format
+    controls are removed, while ASCII/line controls and Unicode line/paragraph
+    separators become whitespace boundaries so distinct visible source tokens
+    cannot be silently concatenated. Whitespace is collapsed deterministically.
     """
     if source is None:
         return "<unknown>"
     source = unicodedata.normalize("NFKC", source)
-    normalized = "".join(
-        char for char in source if unicodedata.category(char) not in _UNSAFE_SOURCE_CATEGORIES
-    ).strip()
-    return normalized or "<unknown>"
+    normalized = []
+    for char in source:
+        category = unicodedata.category(char)
+        if category == "Cf":
+            continue
+        if category in _SOURCE_SEPARATOR_CATEGORIES:
+            normalized.append(" ")
+        else:
+            normalized.append(char)
+    collapsed = " ".join("".join(normalized).split())
+    return collapsed or "<unknown>"
 
 
 def _normalized_level(level: str) -> str:
@@ -68,13 +73,13 @@ def summarize_sources(events: Iterable[LogEvent]) -> list[SourceHealth]:
     """Return stable per-source event/error distributions.
 
     Source identifiers are Unicode-normalized, trimmed, and stripped of
-    invisible controls before grouping so equivalent presentation forms,
-    incidental whitespace, or display controls cannot split one logical source
-    into multiple health records. Level labels are likewise Unicode-normalized,
-    trimmed, and case-normalized before aggregation. Missing or empty source
-    metadata is grouped under ``<unknown>`` rather than discarded. Error rate is
-    a deterministic fraction in the inclusive 0..1 range. The function is
-    read-only and performs no network or filesystem I/O.
+    invisible format controls before grouping; structural controls remain
+    boundaries rather than joining adjacent source tokens. Level labels are
+    likewise Unicode-normalized, trimmed, and case-normalized before
+    aggregation. Missing or empty source metadata is grouped under ``<unknown>``
+    rather than discarded. Error rate is a deterministic fraction in the
+    inclusive 0..1 range. The function is read-only and performs no network or
+    filesystem I/O.
     """
     grouped: dict[str, list[LogEvent]] = defaultdict(list)
     for event in events:

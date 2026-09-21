@@ -10,19 +10,31 @@ import unicodedata
 from .model import LogEvent
 from .source_analysis import summarize_sources as summarize_source_health
 
-_UNSAFE_SOURCE_CATEGORIES = {"Cc", "Cf", "Zl", "Zp"}
+_SOURCE_SEPARATOR_CATEGORIES = {"Cc", "Zl", "Zp"}
 _MESSAGE_SEPARATOR_CATEGORIES = {"Cc", "Zl", "Zp"}
 
 
 def _normalized_source(source: str | None) -> str:
-    """Return a stable display identity for source filtering and aggregation."""
+    """Return a stable display identity for source filtering and aggregation.
+
+    Invisible format controls are removed, while structural controls become
+    whitespace boundaries. This prevents identifiers such as ``api\nworker``
+    from being silently joined into ``apiworker`` during normalization.
+    """
     if source is None:
         return "<unknown>"
     source = unicodedata.normalize("NFKC", source)
-    normalized = "".join(
-        char for char in source if unicodedata.category(char) not in _UNSAFE_SOURCE_CATEGORIES
-    ).strip()
-    return normalized or "<unknown>"
+    normalized = []
+    for char in source:
+        category = unicodedata.category(char)
+        if category == "Cf":
+            continue
+        if category in _SOURCE_SEPARATOR_CATEGORIES:
+            normalized.append(" ")
+        else:
+            normalized.append(char)
+    collapsed = " ".join("".join(normalized).split())
+    return collapsed or "<unknown>"
 
 
 def _filter_source_key(source: str | None) -> str:
@@ -111,10 +123,10 @@ def filter_events(
     and whitespace trimming. Message matching is case-insensitive after Unicode
     compatibility normalization; invisible format controls are ignored while
     structural controls remain separators. Source matching is case-insensitive
-    after Unicode compatibility normalization, removal of invisible/control
-    formatting characters, and whitespace trimming. Events without a logical
-    source can be selected explicitly with ``<unknown>`` so incomplete telemetry
-    remains queryable.
+    after Unicode compatibility normalization; invisible format controls are
+    removed while structural controls remain whitespace boundaries. Events
+    without a logical source can be selected explicitly with ``<unknown>`` so
+    incomplete telemetry remains queryable.
     """
     normalized_levels = {_filter_level_key(level) for level in levels} if levels else None
     normalized_sources = {_filter_source_key(source) for source in sources} if sources else None
