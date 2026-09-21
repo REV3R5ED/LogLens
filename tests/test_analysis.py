@@ -45,6 +45,24 @@ def test_filter_events_combines_level_and_message_filters():
     assert filter_events(events, levels={"ERROR", "WARN"}, contains="DATABASE") == [events[0]]
 
 
+def test_filter_events_normalizes_unicode_message_variants():
+    events = [
+        LogEvent("ｄａｔａｂａｓｅ timeout", "ERROR"),
+        LogEvent("data\u200bbase unavailable", "ERROR"),
+        LogEvent("cache timeout", "WARN"),
+    ]
+    assert filter_events(events, contains="DATABASE") == events[:2]
+    assert filter_events(events, contains="ｄａｔａｂａｓｅ") == events[:2]
+
+
+def test_filter_events_does_not_join_message_across_structural_controls():
+    events = [
+        LogEvent("data\nbase unavailable", "ERROR"),
+        LogEvent("database unavailable", "ERROR"),
+    ]
+    assert filter_events(events, contains="database") == [events[1]]
+
+
 def test_summarize_counts_levels_and_sources():
     events = [
         LogEvent("one", "INFO", source="app.log"),
