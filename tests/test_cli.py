@@ -254,19 +254,18 @@ def test_failure_gate_options_are_mutually_exclusive():
 
 
 def test_documented_portfolio_demo_remains_reproducible(tmp_path, capsys):
-    log = tmp_path / "loglens-demo.log"
-    log.write_text(
-        "2026-09-20T18:00:00Z INFO api request completed\n"
-        "2026-09-20T18:00:10Z INFO api request completed\n"
-        "2026-09-20T18:01:00Z ERROR api database unavailable\n"
-        "2026-09-20T18:01:05Z ERROR api database unavailable\n"
-        "2026-09-20T18:01:10Z ERROR api database unavailable\n"
-        "2026-09-20T18:01:15Z ERROR api database unavailable\n"
-        "2026-09-20T18:01:20Z ERROR api database unavailable\n",
-        encoding="utf-8",
-    )
+    log = tmp_path / "loglens-demo.jsonl"
+    records = [
+        {"timestamp": "2026-09-20T18:00:00Z", "level": "INFO", "source": "api", "message": "request completed"},
+        {"timestamp": "2026-09-20T18:00:10Z", "level": "INFO", "source": "api", "message": "request completed"},
+        *[
+            {"timestamp": f"2026-09-20T18:01:{second:02d}Z", "level": "ERROR", "source": "api", "message": "database unavailable"}
+            for second in (0, 5, 10, 15, 20)
+        ],
+    ]
+    log.write_text("".join(json.dumps(record) + "\n" for record in records), encoding="utf-8")
 
-    exit_code = main(["analyze", str(log), "--window-minutes", "1", "--json"])
+    exit_code = main(["analyze", str(log), "--format", "json", "--window-minutes", "1", "--json"])
 
     assert exit_code == 0
     report = json.loads(capsys.readouterr().out)
@@ -275,6 +274,8 @@ def test_documented_portfolio_demo_remains_reproducible(tmp_path, capsys):
     assert report["parse_errors"] == 0
     assert report["time_baseline"]["window_minutes"] == 1
     assert report["time_baseline"]["timestamped_events"] == 7
+    assert report["sources"]["api"]["events"] == 7
+    assert report["sources"]["api"]["levels"] == {"ERROR": 5, "INFO": 2}
     assert {finding["rule"] for finding in report["findings"]} >= {
-        "elevated-errors", "repeated-message",
+        "elevated-errors", "repeated-message", "error-burst",
     }
