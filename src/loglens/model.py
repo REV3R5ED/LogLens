@@ -5,14 +5,24 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+_SOURCE_SEPARATOR_CATEGORIES = {"Cc", "Zl", "Zp"}
+
 
 def _normalize_source(value: str | None) -> str | None:
-    """Canonicalize a logical source while removing invisible format controls."""
+    """Canonicalize a logical source without letting controls join identities."""
     if value is None:
         return None
     normalized = unicodedata.normalize("NFKC", value)
-    normalized = "".join(char for char in normalized if unicodedata.category(char) != "Cf")
-    normalized = normalized.strip()
+    safe = []
+    for char in normalized:
+        category = unicodedata.category(char)
+        if category == "Cf":
+            continue
+        if category in _SOURCE_SEPARATOR_CATEGORIES:
+            safe.append(" ")
+        else:
+            safe.append(char)
+    normalized = " ".join("".join(safe).split())
     return normalized or None
 
 
