@@ -16,17 +16,12 @@ def test_cli_version_matches_runtime_package_version(capsys):
 
 
 def test_detection_threshold_flags_are_parsed():
-    args = build_parser().parse_args([
-        "analyze", "app.log", "--error-threshold", "3", "--repeat-threshold", "4",
-    ])
+    args = build_parser().parse_args(["analyze", "app.log", "--error-threshold", "3", "--repeat-threshold", "4"])
     assert args.error_threshold == 3
     assert args.repeat_threshold == 4
 
 
-@pytest.mark.parametrize(
-    ("flag", "value"),
-    [("--error-threshold", "0"), ("--repeat-threshold", "1"), ("--window-minutes", "0"), ("--window-minutes", "1441"), ("--max-parse-errors", "-1")],
-)
+@pytest.mark.parametrize(("flag", "value"), [("--error-threshold", "0"), ("--repeat-threshold", "1"), ("--window-minutes", "0"), ("--window-minutes", "1441"), ("--max-parse-errors", "-1")])
 def test_invalid_detection_and_window_values_are_rejected(flag, value):
     with pytest.raises(SystemExit) as exc:
         build_parser().parse_args(["analyze", "app.log", flag, value])
@@ -36,29 +31,17 @@ def test_invalid_detection_and_window_values_are_rejected(flag, value):
 def test_json_report_records_effective_detection_config(tmp_path, capsys):
     log = tmp_path / "app.log"
     log.write_text("ERROR database unavailable\nERROR database unavailable\n", encoding="utf-8")
-    exit_code = main([
-        "analyze", str(log), "--error-threshold", "2", "--repeat-threshold", "2", "--json",
-    ])
+    exit_code = main(["analyze", str(log), "--error-threshold", "2", "--repeat-threshold", "2", "--json"])
     assert exit_code == 0
     report = json.loads(capsys.readouterr().out)
-    assert report["detection_config"] == {
-        "error_threshold": 2,
-        "repeat_threshold": 2,
-        "burst_threshold": 5,
-        "burst_window_seconds": 60,
-    }
+    assert report["detection_config"] == {"error_threshold": 2, "repeat_threshold": 2, "burst_threshold": 5, "burst_window_seconds": 60}
     assert report["max_parse_errors"] == 0
     assert {finding["rule"] for finding in report["findings"]} == {"elevated-errors", "repeated-message"}
 
 
 def test_json_report_can_include_time_window_baseline(tmp_path, capsys):
     log = tmp_path / "events.jsonl"
-    log.write_text(
-        '{"timestamp":"2026-09-15T10:01:00Z","level":"INFO","message":"ok"}\n'
-        '{"timestamp":"2026-09-15T10:03:00Z","level":"ERROR","message":"bad"}\n'
-        '{"level":"WARN","message":"no timestamp"}\n',
-        encoding="utf-8",
-    )
+    log.write_text('{"timestamp":"2026-09-15T10:01:00Z","level":"INFO","message":"ok"}\n{"timestamp":"2026-09-15T10:03:00Z","level":"ERROR","message":"bad"}\n{"level":"WARN","message":"no timestamp"}\n', encoding="utf-8")
     exit_code = main(["analyze", str(log), "--format", "json", "--window-minutes", "5", "--json"])
     assert exit_code == 0
     baseline = json.loads(capsys.readouterr().out)["time_baseline"]
@@ -70,16 +53,8 @@ def test_json_report_can_include_time_window_baseline(tmp_path, capsys):
 
 def test_text_output_reports_filters_findings_and_baseline(tmp_path, capsys):
     log = tmp_path / "events.jsonl"
-    log.write_text(
-        '{"timestamp":"2026-09-15T10:01:00Z","level":"ERROR","message":"database unavailable"}\n'
-        '{"timestamp":"2026-09-15T10:02:00Z","level":"ERROR","message":"database unavailable"}\n'
-        '{"timestamp":"2026-09-15T10:03:00Z","level":"INFO","message":"healthy"}\n',
-        encoding="utf-8",
-    )
-    exit_code = main([
-        "analyze", str(log), "--format", "json", "--level", "ERROR",
-        "--error-threshold", "2", "--repeat-threshold", "2", "--window-minutes", "5",
-    ])
+    log.write_text('{"timestamp":"2026-09-15T10:01:00Z","level":"ERROR","message":"database unavailable"}\n{"timestamp":"2026-09-15T10:02:00Z","level":"ERROR","message":"database unavailable"}\n{"timestamp":"2026-09-15T10:03:00Z","level":"INFO","message":"healthy"}\n', encoding="utf-8")
+    exit_code = main(["analyze", str(log), "--format", "json", "--level", "ERROR", "--error-threshold", "2", "--repeat-threshold", "2", "--window-minutes", "5"])
     assert exit_code == 0
     output = capsys.readouterr().out
     assert "Input: 3 | Matched: 2 | Parse errors: 0" in output
@@ -91,27 +66,19 @@ def test_text_output_reports_filters_findings_and_baseline(tmp_path, capsys):
 def test_csv_output_is_parseable_and_preserves_report_sections(tmp_path, capsys):
     log = tmp_path / "app.log"
     log.write_text("ERROR disk full\nERROR disk full\n", encoding="utf-8")
-    exit_code = main([
-        "analyze", str(log), "--error-threshold", "2", "--repeat-threshold", "2", "--csv",
-    ])
+    exit_code = main(["analyze", str(log), "--error-threshold", "2", "--repeat-threshold", "2", "--csv"])
     assert exit_code == 0
     rows = list(csv.DictReader(io.StringIO(capsys.readouterr().out)))
     assert rows
     assert {row["record_type"] for row in rows} >= {"summary", "config", "finding"}
-    assert {row["name"] for row in rows if row["record_type"] == "config"} == {
-        "error_threshold", "repeat_threshold", "burst_threshold", "burst_window_seconds",
-    }
-    assert {row["name"] for row in rows if row["record_type"] == "finding"} == {
-        "elevated-errors", "repeated-message",
-    }
+    assert {row["name"] for row in rows if row["record_type"] == "config"} == {"error_threshold", "repeat_threshold", "burst_threshold", "burst_window_seconds"}
+    assert {row["name"] for row in rows if row["record_type"] == "finding"} == {"elevated-errors", "repeated-message"}
 
 
 def test_csv_report_preserves_parse_error_budget(tmp_path, capsys):
     log = tmp_path / "events.jsonl"
     log.write_text('{"level":"INFO","message":"valid"}\n{bad}\n', encoding="utf-8")
-    exit_code = main([
-        "analyze", str(log), "--format", "json", "--max-parse-errors", "1", "--csv",
-    ])
+    exit_code = main(["analyze", str(log), "--format", "json", "--max-parse-errors", "1", "--csv"])
     assert exit_code == 0
     rows = list(csv.DictReader(io.StringIO(capsys.readouterr().out)))
     summary = {row["name"]: row["value"] for row in rows if row["record_type"] == "summary"}
@@ -121,11 +88,7 @@ def test_csv_report_preserves_parse_error_budget(tmp_path, capsys):
 
 def test_strict_json_parse_errors_return_nonzero_but_emit_report(tmp_path, capsys):
     log = tmp_path / "events.jsonl"
-    log.write_text(
-        '{"level":"INFO","message":"valid"}\n'
-        '{not valid json}\n',
-        encoding="utf-8",
-    )
+    log.write_text('{"level":"INFO","message":"valid"}\n{not valid json}\n', encoding="utf-8")
     exit_code = main(["analyze", str(log), "--format", "json", "--json"])
     assert exit_code == 2
     report = json.loads(capsys.readouterr().out)
@@ -137,14 +100,8 @@ def test_strict_json_parse_errors_return_nonzero_but_emit_report(tmp_path, capsy
 
 def test_parse_error_budget_allows_known_noise_but_remains_auditable(tmp_path, capsys):
     log = tmp_path / "events.jsonl"
-    log.write_text(
-        '{"level":"INFO","message":"valid"}\n'
-        '{not valid json}\n',
-        encoding="utf-8",
-    )
-    exit_code = main([
-        "analyze", str(log), "--format", "json", "--max-parse-errors", "1", "--json",
-    ])
+    log.write_text('{"level":"INFO","message":"valid"}\n{not valid json}\n', encoding="utf-8")
+    exit_code = main(["analyze", str(log), "--format", "json", "--max-parse-errors", "1", "--json"])
     assert exit_code == 0
     report = json.loads(capsys.readouterr().out)
     assert report["parse_errors"] == 1
@@ -155,9 +112,7 @@ def test_parse_error_budget_allows_known_noise_but_remains_auditable(tmp_path, c
 def test_parse_error_budget_fails_when_exceeded(tmp_path, capsys):
     log = tmp_path / "events.jsonl"
     log.write_text('{bad}\n{also bad}\n', encoding="utf-8")
-    exit_code = main([
-        "analyze", str(log), "--format", "json", "--max-parse-errors", "1", "--json",
-    ])
+    exit_code = main(["analyze", str(log), "--format", "json", "--max-parse-errors", "1", "--json"])
     assert exit_code == 2
     report = json.loads(capsys.readouterr().out)
     assert report["parse_errors"] == 2
@@ -183,15 +138,10 @@ def test_json_and_csv_are_mutually_exclusive():
 def test_fail_on_finding_returns_three_after_emitting_report(tmp_path, capsys):
     log = tmp_path / "app.log"
     log.write_text("ERROR disk full\nERROR disk full\n", encoding="utf-8")
-    exit_code = main([
-        "analyze", str(log), "--error-threshold", "2", "--repeat-threshold", "2",
-        "--fail-on-finding", "--json",
-    ])
+    exit_code = main(["analyze", str(log), "--error-threshold", "2", "--repeat-threshold", "2", "--fail-on-finding", "--json"])
     assert exit_code == 3
     report = json.loads(capsys.readouterr().out)
-    assert {finding["rule"] for finding in report["findings"]} == {
-        "elevated-errors", "repeated-message",
-    }
+    assert {finding["rule"] for finding in report["findings"]} == {"elevated-errors", "repeated-message"}
 
 
 def test_fail_on_finding_keeps_clean_analysis_successful(tmp_path, capsys):
@@ -204,16 +154,8 @@ def test_fail_on_finding_keeps_clean_analysis_successful(tmp_path, capsys):
 
 def test_parse_error_takes_precedence_over_finding_exit_code(tmp_path, capsys):
     log = tmp_path / "events.jsonl"
-    log.write_text(
-        '{"level":"ERROR","message":"database unavailable"}\n'
-        '{"level":"ERROR","message":"database unavailable"}\n'
-        '{not valid json}\n',
-        encoding="utf-8",
-    )
-    exit_code = main([
-        "analyze", str(log), "--format", "json", "--error-threshold", "2",
-        "--repeat-threshold", "2", "--fail-on-finding", "--json",
-    ])
+    log.write_text('{"level":"ERROR","message":"database unavailable"}\n{"level":"ERROR","message":"database unavailable"}\n{not valid json}\n', encoding="utf-8")
+    exit_code = main(["analyze", str(log), "--format", "json", "--error-threshold", "2", "--repeat-threshold", "2", "--fail-on-finding", "--json"])
     assert exit_code == 2
     report = json.loads(capsys.readouterr().out)
     assert report["parse_errors"] == 1
@@ -223,10 +165,7 @@ def test_parse_error_takes_precedence_over_finding_exit_code(tmp_path, capsys):
 def test_fail_on_severity_ignores_findings_below_threshold(tmp_path, capsys):
     log = tmp_path / "app.log"
     log.write_text("ERROR disk full\nERROR disk full\n", encoding="utf-8")
-    exit_code = main([
-        "analyze", str(log), "--error-threshold", "2", "--repeat-threshold", "2",
-        "--fail-on-severity", "high", "--json",
-    ])
+    exit_code = main(["analyze", str(log), "--error-threshold", "2", "--repeat-threshold", "2", "--fail-on-severity", "high", "--json"])
     assert exit_code == 0
     report = json.loads(capsys.readouterr().out)
     assert report["findings"]
@@ -236,10 +175,7 @@ def test_fail_on_severity_ignores_findings_below_threshold(tmp_path, capsys):
 def test_fail_on_severity_returns_three_at_or_above_threshold(tmp_path, capsys):
     log = tmp_path / "app.log"
     log.write_text("ERROR disk full\n" * 10, encoding="utf-8")
-    exit_code = main([
-        "analyze", str(log), "--error-threshold", "2", "--repeat-threshold", "2",
-        "--fail-on-severity", "medium", "--json",
-    ])
+    exit_code = main(["analyze", str(log), "--error-threshold", "2", "--repeat-threshold", "2", "--fail-on-severity", "medium", "--json"])
     assert exit_code == 3
     report = json.loads(capsys.readouterr().out)
     assert any(finding["severity"] in {"medium", "high"} for finding in report["findings"])
@@ -247,7 +183,32 @@ def test_fail_on_severity_returns_three_at_or_above_threshold(tmp_path, capsys):
 
 def test_failure_gate_options_are_mutually_exclusive():
     with pytest.raises(SystemExit) as exc:
-        build_parser().parse_args([
-            "analyze", "app.log", "--fail-on-finding", "--fail-on-severity", "high",
-        ])
+        build_parser().parse_args(["analyze", "app.log", "--fail-on-finding", "--fail-on-severity", "high"])
     assert exc.value.code == 2
+
+
+def test_documented_portfolio_demo_remains_reproducible(tmp_path, capsys):
+    log = tmp_path / "loglens-demo.jsonl"
+    records = [
+        {"timestamp": "2026-09-20T18:00:00Z", "level": "INFO", "source": "api", "message": "request completed"},
+        {"timestamp": "2026-09-20T18:00:10Z", "level": "INFO", "source": "api", "message": "request completed"},
+        *[
+            {"timestamp": f"2026-09-20T18:01:{second:02d}Z", "level": "ERROR", "source": "api", "message": "database unavailable"}
+            for second in (0, 5, 10, 15, 20)
+        ],
+    ]
+    log.write_text("".join(json.dumps(record) + "\n" for record in records), encoding="utf-8")
+
+    exit_code = main(["analyze", str(log), "--format", "json", "--window-minutes", "1", "--json"])
+
+    assert exit_code == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["input_events"] == 7
+    assert report["matched_events"] == 7
+    assert report["parse_errors"] == 0
+    assert report["time_baseline"]["window_minutes"] == 1
+    assert report["time_baseline"]["timestamped_events"] == 7
+    source_health = {source["source"]: source for source in report["source_health"]}
+    assert source_health["api"]["events"] == 7
+    assert source_health["api"]["error_events"] == 5
+    assert {finding["rule"] for finding in report["findings"]} >= {"elevated-errors", "repeated-message", "error-burst"}
