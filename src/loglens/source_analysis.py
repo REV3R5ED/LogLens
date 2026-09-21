@@ -53,14 +53,15 @@ def _normalized_source(source: str | None) -> str:
 
 
 def _normalized_level(level: str) -> str:
-    """Return a stable level label for source-health aggregation.
+    """Return a stable severity label for source-health aggregation.
 
-    Parsers normally emit canonical levels, but ``LogEvent`` is also part of the
-    public Python API. Trimming incidental surrounding whitespace before
-    upper-casing prevents equivalent labels such as ``"ERROR"`` and
-    ``" error "`` from splitting counters or bypassing error classification.
+    ``LogEvent`` is part of the public Python API, so callers can bypass parser
+    normalization. Apply Unicode compatibility normalization before trimming and
+    upper-casing so equivalent labels such as ``"ERROR"``, ``" error "``, and
+    full-width ``"ＥＲＲＯＲ"`` cannot split counters or bypass error
+    classification.
     """
-    return level.strip().upper()
+    return unicodedata.normalize("NFKC", level).strip().upper()
 
 
 def summarize_sources(events: Iterable[LogEvent]) -> list[SourceHealth]:
@@ -69,10 +70,10 @@ def summarize_sources(events: Iterable[LogEvent]) -> list[SourceHealth]:
     Source identifiers are Unicode-normalized, trimmed, and stripped of
     invisible controls before grouping so equivalent presentation forms,
     incidental whitespace, or display controls cannot split one logical source
-    into multiple health records. Level labels are likewise trimmed and
-    case-normalized before aggregation. Missing or empty source metadata is
-    grouped under ``<unknown>`` rather than discarded. Error rate is a
-    deterministic fraction in the inclusive 0..1 range. The function is
+    into multiple health records. Level labels are likewise Unicode-normalized,
+    trimmed, and case-normalized before aggregation. Missing or empty source
+    metadata is grouped under ``<unknown>`` rather than discarded. Error rate is
+    a deterministic fraction in the inclusive 0..1 range. The function is
     read-only and performs no network or filesystem I/O.
     """
     grouped: dict[str, list[LogEvent]] = defaultdict(list)
