@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from typing import Iterable
+import unicodedata
 
 from .model import LogEvent
 
@@ -18,7 +19,7 @@ def _utc(timestamp: datetime) -> datetime:
 
 def _normalized_level(level: str) -> str:
     """Return the canonical level label used by time-window aggregation."""
-    return level.strip().upper()
+    return unicodedata.normalize("NFKC", level).strip().upper()
 
 
 def build_time_windows(events: Iterable[LogEvent], *, window_minutes: int = 5) -> list[dict[str, object]]:
