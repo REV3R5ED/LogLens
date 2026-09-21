@@ -7,6 +7,7 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 ## [Unreleased]
 
 ### Added
+- Message substring filtering now applies Unicode compatibility normalization and ignores invisible format controls while preserving structural controls as separators, so visually equivalent log text remains searchable without creating matches across record boundaries.
 - Text/logfmt records now recognize `source`, `service`, `component`, and `logger` key/value fields as logical event sources, allowing source filtering, per-service health summaries, and source-scoped anomaly detection to work consistently for common structured text logs while retaining file provenance as the fallback.
 - `journalctl -o json` records now normalize `MESSAGE`, syslog `PRIORITY`, `__REALTIME_TIMESTAMP`, and common service identifiers (`_SYSTEMD_UNIT`, `SYSLOG_IDENTIFIER`, `_COMM`) into LogLens message, level, timestamp, and logical source fields while preserving explicit canonical-field precedence and unrelated journal metadata.
 - CSV reports now preserve `max_parse_errors` alongside the observed `parse_errors`, keeping parse-quality policy auditable across both machine-readable report formats.
