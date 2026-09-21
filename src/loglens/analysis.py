@@ -11,6 +11,7 @@ from .model import LogEvent
 from .source_analysis import summarize_sources as summarize_source_health
 
 _UNSAFE_SOURCE_CATEGORIES = {"Cc", "Cf", "Zl", "Zp"}
+_MESSAGE_SEPARATOR_CATEGORIES = {"Cc", "Zl", "Zp"}
 
 
 def _normalized_source(source: str | None) -> str:
@@ -32,6 +33,27 @@ def _filter_source_key(source: str | None) -> str:
 def _filter_level_key(level: str) -> str:
     """Return a compatibility-normalized severity key for filtering."""
     return unicodedata.normalize("NFKC", level).strip().upper()
+
+
+def _filter_message_key(message: str) -> str:
+    """Return a compatibility-normalized key for defensive substring filtering.
+
+    Unicode format controls are removed so invisible characters cannot split an
+    otherwise visible search term. ASCII/line controls become spaces instead of
+    being deleted, preventing a search from accidentally matching across record
+    structure such as a newline or tab.
+    """
+    message = unicodedata.normalize("NFKC", message)
+    normalized = []
+    for char in message:
+        category = unicodedata.category(char)
+        if category == "Cf":
+            continue
+        if category in _MESSAGE_SEPARATOR_CATEGORIES:
+            normalized.append(" ")
+        else:
+            normalized.append(char)
+    return "".join(normalized).casefold()
 
 
 @dataclass(slots=True)
@@ -86,20 +108,22 @@ def filter_events(
     """Return events matching optional level, message, and source filters.
 
     Level matching is case-insensitive after Unicode compatibility normalization
-    and whitespace trimming. Source matching is case-insensitive after Unicode
-    compatibility normalization, removal of invisible/control formatting
-    characters, and whitespace trimming. Events without a logical source can be
-    selected explicitly with ``<unknown>`` so incomplete telemetry remains
-    queryable.
+    and whitespace trimming. Message matching is case-insensitive after Unicode
+    compatibility normalization; invisible format controls are ignored while
+    structural controls remain separators. Source matching is case-insensitive
+    after Unicode compatibility normalization, removal of invisible/control
+    formatting characters, and whitespace trimming. Events without a logical
+    source can be selected explicitly with ``<unknown>`` so incomplete telemetry
+    remains queryable.
     """
     normalized_levels = {_filter_level_key(level) for level in levels} if levels else None
     normalized_sources = {_filter_source_key(source) for source in sources} if sources else None
-    needle = contains.casefold() if contains else None
+    needle = _filter_message_key(contains) if contains else None
     matched: list[LogEvent] = []
     for event in events:
         if normalized_levels is not None and _filter_level_key(event.level) not in normalized_levels:
             continue
-        if needle is not None and needle not in event.message.casefold():
+        if needle is not None and needle not in _filter_message_key(event.message):
             continue
         if normalized_sources is not None and _filter_source_key(event.source) not in normalized_sources:
             continue
