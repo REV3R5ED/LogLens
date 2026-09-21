@@ -49,6 +49,24 @@ def test_normalizes_padded_and_mixed_case_levels_before_aggregation():
     }
 
 
+def test_normalizes_unicode_compatibility_levels_before_aggregation():
+    timestamp = datetime(2026, 9, 15, 10, 2, tzinfo=timezone.utc)
+    windows = build_time_windows([
+        LogEvent("one", "ＥＲＲＯＲ", timestamp),
+        LogEvent("two", "ＣＲＩＴＩＣＡＬ", timestamp),
+        LogEvent("three", "ＦＡＴＡＬ", timestamp),
+        LogEvent("four", "ＩＮＦＯ", timestamp),
+    ])
+
+    assert windows[0]["error_events"] == 3
+    assert windows[0]["levels"] == {
+        "CRITICAL": 1,
+        "ERROR": 1,
+        "FATAL": 1,
+        "INFO": 1,
+    }
+
+
 def test_ignores_events_without_timestamps():
     assert build_time_windows([LogEvent("no timestamp", "INFO")]) == []
 
