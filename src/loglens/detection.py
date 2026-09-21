@@ -76,6 +76,13 @@ def _normalize_level(value: str) -> str:
     return unicodedata.normalize("NFKC", value).strip().upper()
 
 
+def _normalize_message(value: str) -> str:
+    """Canonicalize repeated-message keys while retaining raw evidence separately."""
+    normalized = unicodedata.normalize("NFKC", value)
+    normalized = "".join(char for char in normalized if unicodedata.category(char) not in {"Cf", "Zl", "Zp"})
+    return normalized.strip()
+
+
 _MAX_FINDING_CONTEXT = 240
 
 
@@ -151,12 +158,22 @@ def detect_anomalies(events: Iterable[LogEvent], *, error_threshold: int = 5, re
     findings = _detect_elevated_errors(materialized, error_threshold)
 
     scope_totals = Counter((_normalize_source(event.source), _normalize_level(event.level)) for event in materialized)
-    messages = Counter((_normalize_source(event.source), _normalize_level(event.level), event.message.strip()) for event in materialized if event.message.strip())
+    messages: Counter[tuple[str | None, str, str]] = Counter()
+    evidence: dict[tuple[str | None, str, str], str] = {}
+    for event in materialized:
+        normalized_message = _normalize_message(event.message)
+        if not normalized_message:
+            continue
+        key = (_normalize_source(event.source), _normalize_level(event.level), normalized_message)
+        messages[key] += 1
+        evidence.setdefault(key, event.message.strip())
+
     for (source, level, message), count in sorted(messages.items(), key=lambda item: ((item[0][0] or ""), item[0][1], item[0][2])):
         if count >= repeat_threshold:
             score = _score(count, repeat_threshold, scope_totals[(source, level)])
             source_context = f" [{_safe_context(source)}]" if source else ""
-            findings.append(Finding("repeated-message", _severity(score), f"Repeated message{source_context}: {_safe_context(message)}", count, score))
+            display_message = evidence[(source, level, message)]
+            findings.append(Finding("repeated-message", _severity(score), f"Repeated message{source_context}: {_safe_context(display_message)}", count, score))
 
     findings.extend(_detect_error_bursts(materialized, burst_threshold, burst_window_seconds))
     return findings
