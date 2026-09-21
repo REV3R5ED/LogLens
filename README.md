@@ -43,6 +43,8 @@ loglens analyze /path/to/events.jsonl --window-minutes 5 --csv > report.csv
 pytest -q
 ```
 
+For a short end-to-end reviewer scenario, see the [reproducible portfolio demo](docs/portfolio-demo.md). It creates a local synthetic service log, triggers explainable findings, and exports JSON/CSV results without network access.
+
 `--level` can be repeated and combined with `--contains`. Reports distinguish total input records from records matching the active filters, so filtering remains visible and auditable. Detection runs only on the matched event set. `--json` and `--csv` are mutually exclusive report formats.
 
 Detection thresholds can be tuned per analysis with `--error-threshold` and `--repeat-threshold`. The defaults remain 5 and 5. Error thresholds must be at least 1 and repeat thresholds at least 2, preventing nonsensical configurations. Machine-readable reports include the effective detection configuration so saved results remain reproducible and auditable.
@@ -115,6 +117,7 @@ LogLens focuses on detection, troubleshooting, observability, and incident-analy
 - [x] parse leading ISO timestamps from common text logs
 - [x] normalize OpenTelemetry severity numbers
 - [x] document RFC 5424 CLI support
+- [x] add a reproducible end-to-end portfolio demo
 - [ ] tag a portfolio-ready release
 
 Release history and notable changes are maintained in [CHANGELOG.md](CHANGELOG.md).
