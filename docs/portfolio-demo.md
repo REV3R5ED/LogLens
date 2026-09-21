@@ -12,15 +12,17 @@ An API service is healthy for several minutes, then begins returning repeated da
 
 ## Create the sample log
 
+Use JSON Lines so timestamp, severity, logical source, and message remain separate fields. That matters for a realistic demo: timestamps should not become part of the repeated-message identity, and `api` should be explicit source metadata rather than text that a parser has to guess.
+
 ```bash
-cat > /tmp/loglens-demo.log <<'EOF'
-2026-09-20T18:00:00Z INFO api request completed
-2026-09-20T18:00:10Z INFO api request completed
-2026-09-20T18:01:00Z ERROR api database unavailable
-2026-09-20T18:01:05Z ERROR api database unavailable
-2026-09-20T18:01:10Z ERROR api database unavailable
-2026-09-20T18:01:15Z ERROR api database unavailable
-2026-09-20T18:01:20Z ERROR api database unavailable
+cat > /tmp/loglens-demo.jsonl <<'EOF'
+{"timestamp":"2026-09-20T18:00:00Z","level":"INFO","source":"api","message":"request completed"}
+{"timestamp":"2026-09-20T18:00:10Z","level":"INFO","source":"api","message":"request completed"}
+{"timestamp":"2026-09-20T18:01:00Z","level":"ERROR","source":"api","message":"database unavailable"}
+{"timestamp":"2026-09-20T18:01:05Z","level":"ERROR","source":"api","message":"database unavailable"}
+{"timestamp":"2026-09-20T18:01:10Z","level":"ERROR","source":"api","message":"database unavailable"}
+{"timestamp":"2026-09-20T18:01:15Z","level":"ERROR","source":"api","message":"database unavailable"}
+{"timestamp":"2026-09-20T18:01:20Z","level":"ERROR","source":"api","message":"database unavailable"}
 EOF
 ```
 
@@ -29,15 +31,15 @@ EOF
 From an editable installation of the repository:
 
 ```bash
-loglens analyze /tmp/loglens-demo.log --window-minutes 1 --json
+loglens analyze /tmp/loglens-demo.jsonl --format json --window-minutes 1 --json
 ```
 
-The default thresholds are sufficient for this dataset: five error events from the same logical source and five repetitions of the same message. The JSON report should therefore make the input/matched counts auditable, show the `api` source and its level distribution, include one-minute UTC baseline windows, and emit explainable anomaly findings with deterministic scores.
+The default thresholds are sufficient for this dataset: five error events from the `api` source, five repetitions of the `database unavailable` message, and five timestamped errors inside the default 60-second burst window. The JSON report should therefore make the input/matched counts auditable, show the `api` source and its level distribution, include one-minute UTC baseline windows, and emit `elevated-errors`, `repeated-message`, and `error-burst` findings with deterministic scores.
 
 For a spreadsheet-friendly artifact:
 
 ```bash
-loglens analyze /tmp/loglens-demo.log --window-minutes 1 --csv > /tmp/loglens-demo.csv
+loglens analyze /tmp/loglens-demo.jsonl --format json --window-minutes 1 --csv > /tmp/loglens-demo.csv
 ```
 
 The CSV preserves summary records, effective detection configuration, findings, and time-window baseline context rather than reducing the result to a single alert.
@@ -48,9 +50,10 @@ The findings are triage signals, not incident verdicts. In a real investigation,
 
 ## What this demonstrates
 
-- deterministic parsing of timestamped text logs
-- source and severity aggregation
+- deterministic parsing of structured JSON logs
+- explicit source and severity aggregation
 - explainable threshold-based anomaly detection
+- timestamp-aware burst detection
 - fixed UTC time-window baselines
 - reproducible JSON/CSV reporting
 - a defensive, non-destructive workflow suitable for local validation or portfolio review
