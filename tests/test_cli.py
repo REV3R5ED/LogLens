@@ -251,3 +251,30 @@ def test_failure_gate_options_are_mutually_exclusive():
             "analyze", "app.log", "--fail-on-finding", "--fail-on-severity", "high",
         ])
     assert exc.value.code == 2
+
+
+def test_documented_portfolio_demo_remains_reproducible(tmp_path, capsys):
+    log = tmp_path / "loglens-demo.log"
+    log.write_text(
+        "2026-09-20T18:00:00Z INFO api request completed\n"
+        "2026-09-20T18:00:10Z INFO api request completed\n"
+        "2026-09-20T18:01:00Z ERROR api database unavailable\n"
+        "2026-09-20T18:01:05Z ERROR api database unavailable\n"
+        "2026-09-20T18:01:10Z ERROR api database unavailable\n"
+        "2026-09-20T18:01:15Z ERROR api database unavailable\n"
+        "2026-09-20T18:01:20Z ERROR api database unavailable\n",
+        encoding="utf-8",
+    )
+
+    exit_code = main(["analyze", str(log), "--window-minutes", "1", "--json"])
+
+    assert exit_code == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["input_events"] == 7
+    assert report["matched_events"] == 7
+    assert report["parse_errors"] == 0
+    assert report["time_baseline"]["window_minutes"] == 1
+    assert report["time_baseline"]["timestamped_events"] == 7
+    assert {finding["rule"] for finding in report["findings"]} >= {
+        "elevated-errors", "repeated-message",
+    }
