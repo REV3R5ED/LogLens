@@ -33,3 +33,8 @@ def test_source_normalization_does_not_join_control_separated_names() -> None:
 
     assert separated.source == "api worker"
     assert separated.source != joined.source
+
+
+def test_source_normalization_collapses_whitespace_adjacent_to_separator() -> None:
+    assert LogEvent(message="ok", source="api \n  worker").source == "api worker"
+    assert LogEvent(message="ok", source="api\t  worker").source == "api worker"
