@@ -25,8 +25,8 @@ def _filter_source_key(source: str | None) -> str:
 
 
 def _filter_level_key(level: str) -> str:
-    """Normalize incidental whitespace/casing in a level filter key."""
-    return level.strip().upper()
+    """Return a compatibility-normalized severity key for filtering."""
+    return unicodedata.normalize("NFKC", level).strip().upper()
 
 
 @dataclass(slots=True)
@@ -80,11 +80,12 @@ def filter_events(
 ) -> list[LogEvent]:
     """Return events matching optional level, message, and source filters.
 
-    Level matching is case-insensitive after trimming incidental whitespace.
-    Source matching is case-insensitive after Unicode compatibility
-    normalization, removal of invisible/control formatting characters, and
-    whitespace trimming. Events without a logical source can be selected
-    explicitly with ``<unknown>`` so incomplete telemetry remains queryable.
+    Level matching is case-insensitive after Unicode compatibility normalization
+    and whitespace trimming. Source matching is case-insensitive after Unicode
+    compatibility normalization, removal of invisible/control formatting
+    characters, and whitespace trimming. Events without a logical source can be
+    selected explicitly with ``<unknown>`` so incomplete telemetry remains
+    queryable.
     """
     normalized_levels = {_filter_level_key(level) for level in levels} if levels else None
     normalized_sources = {_filter_source_key(source) for source in sources} if sources else None
