@@ -13,16 +13,19 @@ def _normalize_source(value: str | None) -> str | None:
     if value is None:
         return None
     normalized = unicodedata.normalize("NFKC", value)
-    safe = []
+    safe: list[str] = []
     for char in normalized:
         category = unicodedata.category(char)
         if category == "Cf":
             continue
         if category in _SOURCE_SEPARATOR_CATEGORIES:
-            safe.append(" ")
+            # Preserve a visible identity boundary without globally collapsing
+            # ordinary whitespace that callers may intentionally retain.
+            if not safe or safe[-1] != " ":
+                safe.append(" ")
         else:
             safe.append(char)
-    normalized = " ".join("".join(safe).split())
+    normalized = "".join(safe).strip()
     return normalized or None
 
 
