@@ -136,6 +136,24 @@ def test_text_parser_recognizes_logfmt_source_fields():
         assert event.source == "api"
 
 
+def test_text_parser_preserves_quoted_logfmt_source_values():
+    event = parse_text_line('level=error service="payment worker" msg="request failed"', source="app.log")
+    assert event.source == "payment worker"
+    assert event.level == "ERROR"
+    assert event.message == 'level=error service="payment worker" msg="request failed"'
+
+
+def test_text_parser_preserves_single_quoted_logfmt_source_values():
+    event = parse_text_line("component='background worker' level=info", source="app.log")
+    assert event.source == "background worker"
+
+
+def test_text_parser_malformed_quote_falls_back_without_raising():
+    event = parse_text_line('service="unterminated level=error', source="app.log")
+    assert event.source == "unterminated"
+    assert event.level == "ERROR"
+
+
 def test_text_parser_logfmt_source_falls_back_past_blank_values():
     event = parse_text_line("service='' component=worker level=info", source="app.log")
     assert event.source == "worker"
