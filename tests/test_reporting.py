@@ -53,6 +53,34 @@ def test_report_to_csv_preserves_config_and_time_baseline():
     assert json.loads(window["message"]) == {"ERROR": 2, "WARN": 1}
 
 
+def test_report_to_csv_preserves_privacy_safe_field_coverage():
+    report = {
+        "events": 4, "levels": {}, "sources": {},
+        "field_coverage": {"events": 4, "fields": {
+            "request_id": {"present": 3, "coverage": 0.75},
+            "status": {"present": 4, "coverage": 1.0},
+        }},
+        "findings": [],
+    }
+    rows = _read_csv(report_to_csv(report))
+    coverage = [row for row in rows if row["record_type"] == "field_coverage"]
+    assert [(row["name"], row["value"], row["score"]) for row in coverage] == [
+        ("request_id", "3", "0.75"), ("status", "4", "1.0")
+    ]
+    assert "request-123" not in report_to_csv(report)
+
+
+def test_report_to_csv_neutralizes_field_names_that_look_like_formulas():
+    report = {
+        "events": 1, "levels": {}, "sources": {},
+        "field_coverage": {"events": 1, "fields": {"=HYPERLINK()": {"present": 1, "coverage": 1.0}}},
+        "findings": [],
+    }
+    rows = _read_csv(report_to_csv(report))
+    coverage = next(row for row in rows if row["record_type"] == "field_coverage")
+    assert coverage["name"] == "'=HYPERLINK()"
+
+
 def test_report_to_csv_quotes_untrusted_text_safely():
     report = {"events": 1, "levels": {}, "sources": {}, "findings": [{"rule": "repeat", "count": 2, "severity": "low", "score": 51, "message": "comma, quote \" text"}]}
     rows = _read_csv(report_to_csv(report))
