@@ -95,6 +95,10 @@ def report_to_csv(report: Mapping[str, Any]) -> str:
 
     field_coverage = report.get("field_coverage")
     if isinstance(field_coverage, Mapping):
+        if "events" in field_coverage:
+            writer.writerow((
+                "field_coverage_meta", "events", _csv_safe(field_coverage["events"]), "", "", "",
+            ))
         fields = field_coverage.get("fields", {})
         if isinstance(fields, Mapping):
             for field, stats in sorted(fields.items(), key=lambda item: str(item[0])):
