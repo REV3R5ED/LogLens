@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 import unicodedata
 from datetime import datetime, timezone
 from typing import Any
@@ -194,6 +195,14 @@ def _text_level(token: str) -> str:
     return "UNKNOWN"
 
 
+def _logfmt_tokens(message: str) -> list[str]:
+    """Tokenize shell-like logfmt quoting without failing malformed text logs."""
+    try:
+        return shlex.split(message, comments=False, posix=True)
+    except ValueError:
+        return message.split()
+
+
 def _logfmt_timestamp(tokens: list[str]) -> datetime | None:
     for token in tokens:
         key, separator, value = token.partition("=")
@@ -215,7 +224,7 @@ def _logfmt_source(tokens: list[str]) -> str | None:
 
 def parse_text_line(line: str, *, source: str | None = None) -> LogEvent:
     message = line.rstrip("\r\n")
-    raw_tokens = message.split()
+    raw_tokens = _logfmt_tokens(message)
     level_tokens = message.replace("[", " ").replace("]", " ").replace(":", " ").split()
     level = "UNKNOWN"
     for token in level_tokens:
