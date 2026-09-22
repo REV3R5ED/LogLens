@@ -93,6 +93,18 @@ def report_to_csv(report: Mapping[str, Any]) -> str:
             _csv_safe(source.get("error_rate", "")), _csv_safe(source.get("error_events", "")), _csv_safe(levels),
         ))
 
+    field_coverage = report.get("field_coverage")
+    if isinstance(field_coverage, Mapping):
+        fields = field_coverage.get("fields", {})
+        if isinstance(fields, Mapping):
+            for field, stats in sorted(fields.items(), key=lambda item: str(item[0])):
+                if not isinstance(stats, Mapping):
+                    continue
+                writer.writerow((
+                    "field_coverage", _csv_safe(str(field)), _csv_safe(stats.get("present", "")),
+                    "", _csv_safe(stats.get("coverage", "")), "",
+                ))
+
     findings: Sequence[Mapping[str, Any]] = report.get("findings", ())
     for finding in findings:
         writer.writerow((
