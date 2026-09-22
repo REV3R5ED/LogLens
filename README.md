@@ -2,7 +2,13 @@
 
 Lightweight log analysis and anomaly detection for defensive operations.
 
-> Status: active development / v0.2 release hardening
+> Status: active development / v0.4 release hardening
+
+## Why LogLens
+
+LogLens turns local text, JSON, RFC 5424, and common OpenTelemetry-style logs into deterministic, explainable defensive signals without requiring a heavyweight SIEM. Detection uses visible thresholds and reproducible scoring rather than opaque models, and JSON/CSV reports preserve the effective analysis configuration for later review.
+
+**Reviewer path:** [run the reproducible portfolio demo](docs/portfolio-demo.md) for a short synthetic scenario, then see [related portfolio projects](docs/related-projects.md) for the broader defensive-security toolkit.
 
 ## Goals
 
@@ -118,6 +124,7 @@ LogLens focuses on detection, troubleshooting, observability, and incident-analy
 - [x] normalize OpenTelemetry severity numbers
 - [x] document RFC 5424 CLI support
 - [x] add a reproducible end-to-end portfolio demo
+- [x] add a guarded tag-triggered GitHub Release workflow
 - [ ] tag a portfolio-ready release
 
 Release history and notable changes are maintained in [CHANGELOG.md](CHANGELOG.md).
@@ -129,6 +136,10 @@ Parsing is deliberately deterministic and dependency-light. Malformed records do
 ## Development
 
 The project favors readable Python, deterministic behavior, useful tests, and documentation that makes every detection understandable. CLI integration tests exercise the public command surface without network access, including report formats, filters, malformed strict-mode input, and missing-file behavior.
+
+## Related projects
+
+LogLens is part of the [REV3R5ED defensive-security portfolio](docs/related-projects.md), alongside SentinelKit for IOC/authentication triage, NetScope for bounded network diagnostics, and AutoOPS for safe IT operations automation.
 
 ## License
 
