@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import math
 import unicodedata
 from collections.abc import Mapping, Sequence
 from typing import Any
@@ -39,7 +40,9 @@ def _escape_csv_controls(value: str) -> str:
 
 
 def _csv_safe(value: Any) -> Any:
-    """Neutralize spreadsheet formulas and control characters in untrusted text cells."""
+    """Neutralize unsafe spreadsheet text and reject non-finite numeric cells."""
+    if isinstance(value, float) and not math.isfinite(value):
+        raise ValueError("CSV reports do not support non-finite numeric values")
     if not isinstance(value, str):
         return value
     formula_like = value.lstrip().startswith(("=", "+", "-", "@"))
