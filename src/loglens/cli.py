@@ -13,6 +13,7 @@ from . import __version__
 from .analysis import filter_events, summarize, summarize_sources
 from .baseline import build_time_windows
 from .detection import detect_anomalies
+from .field_analysis import summarize_field_coverage
 from .parsers import parse_line
 from .reporting import report_to_csv, report_to_json
 from .syslog import parse_rfc5424_line
@@ -83,6 +84,7 @@ def _analyze(path: Path, format: str, output_format: str, levels: set[str] | Non
         "source": source_name, "input_events": total_input, "matched_events": len(matched),
         "parse_errors": parse_errors, "max_parse_errors": max_parse_errors,
         "source_health": [summary.to_dict() for summary in summarize_sources(matched)],
+        "field_coverage": summarize_field_coverage(matched),
         "detection_config": {"error_threshold": error_threshold, "repeat_threshold": repeat_threshold, "burst_threshold": burst_threshold, "burst_window_seconds": burst_window_seconds},
         "findings": findings,
     })
