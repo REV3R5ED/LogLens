@@ -16,13 +16,19 @@ def summarize_field_coverage(events: Iterable[LogEvent]) -> dict[str, Any]:
     field is present, but never copies values from logs into the result. This
     makes it suitable for exploratory defensive triage where structured fields
     may contain request identifiers, user data, or other sensitive context.
+
+    Field keys are represented as strings in the summary. If distinct mapping
+    keys normalize to the same display key (for example ``1`` and ``"1"``),
+    that field is counted at most once per event so presence and coverage can
+    never exceed the number of events or 100 percent.
     """
     counts: Counter[str] = Counter()
     event_count = 0
 
     for event in events:
         event_count += 1
-        counts.update(str(key) for key in event.fields)
+        display_keys = {str(key) for key in event.fields}
+        counts.update(display_keys)
 
     fields = {
         key: {

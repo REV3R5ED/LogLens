@@ -34,5 +34,17 @@ def test_field_coverage_is_deterministic_and_accepts_generators():
     assert summary["fields"]["z"] == {"present": 2, "coverage": 1.0}
 
 
+def test_field_coverage_deduplicates_keys_with_same_display_identity():
+    events = [
+        LogEvent(message="mixed keys", fields={1: "numeric", "1": "text"}),
+        LogEvent(message="text key", fields={"1": "again"}),
+    ]
+
+    summary = summarize_field_coverage(events)
+
+    assert summary["fields"]["1"] == {"present": 2, "coverage": 1.0}
+    assert all(field["coverage"] <= 1.0 for field in summary["fields"].values())
+
+
 def test_field_coverage_handles_empty_input():
     assert summarize_field_coverage([]) == {"events": 0, "fields": {}}
