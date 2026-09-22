@@ -222,6 +222,19 @@ def _logfmt_source(tokens: list[str]) -> str | None:
     return None
 
 
+def _logfmt_fields(tokens: list[str]) -> dict[str, str]:
+    """Preserve non-reserved logfmt key/value pairs as structured event fields."""
+    reserved = {"level", "severity", "ts", "timestamp", "time", "source", "service", "component", "logger"}
+    fields: dict[str, str] = {}
+    for token in tokens:
+        key, separator, value = token.partition("=")
+        key = key.strip()
+        if not separator or not key or key.lower() in reserved or key in fields:
+            continue
+        fields[key] = value
+    return fields
+
+
 def parse_text_line(line: str, *, source: str | None = None) -> LogEvent:
     message = line.rstrip("\r\n")
     raw_tokens = _logfmt_tokens(message)
@@ -232,7 +245,8 @@ def parse_text_line(line: str, *, source: str | None = None) -> LogEvent:
         if candidate != "UNKNOWN": level = candidate; break
     timestamp = _leading_text_timestamp(message) or _logfmt_timestamp(raw_tokens)
     logical_source = _logfmt_source(raw_tokens) or source
-    return LogEvent(message=message, level=level, timestamp=timestamp, source=logical_source)
+    fields = _logfmt_fields(raw_tokens)
+    return LogEvent(message=message, level=level, timestamp=timestamp, source=logical_source, fields=fields)
 
 
 def parse_line(line: str, *, source: str | None = None, format: str = "auto") -> LogEvent:
