@@ -15,6 +15,8 @@ def test_type_drift_family_counts_explain_prevalence_without_values():
     assert field["type_drift"] is True
     assert field["type_drift_families"] == ["number", "string"]
     assert field["type_drift_family_counts"] == {"number": 2, "string": 1}
+    assert field["type_drift_family_rates"] == {"number": 2 / 3, "string": 1 / 3}
+    assert sum(field["type_drift_family_rates"].values()) == 1.0
     assert "unavailable" not in repr(field)
 
 
@@ -29,3 +31,4 @@ def test_numeric_widening_stays_compact_without_drift_evidence():
     assert field["type_drift"] is False
     assert "type_drift_families" not in field
     assert "type_drift_family_counts" not in field
+    assert "type_drift_family_rates" not in field
