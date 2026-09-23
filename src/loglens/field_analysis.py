@@ -13,13 +13,7 @@ _FIELD_SEPARATOR_CATEGORIES = {"Cc", "Zl", "Zp"}
 
 
 def _normalized_field_name(key: object) -> str:
-    """Return a stable, display-safe identity for a structured field key.
-
-    Compatibility-equivalent Unicode spellings are folded together, invisible
-    format controls are removed, and structural controls become whitespace
-    boundaries. This prevents visually equivalent or control-character-bearing
-    keys from fragmenting schema coverage or producing misleading reports.
-    """
+    """Return a stable, display-safe identity for a structured field key."""
     name = unicodedata.normalize("NFKC", str(key))
     normalized = []
     for char in name:
@@ -53,23 +47,19 @@ def _value_type(value: Any) -> str:
 
 
 def summarize_field_coverage(events: Iterable[LogEvent]) -> dict[str, Any]:
-    """Summarize structured-field presence and coarse types without values.
+    """Summarize structured-field presence, absence, and coarse types safely.
 
     The summary is intentionally schema-oriented: it reports how often each
-    field is present, which coarse value types were observed, and whether more
-    than one non-null type was seen. Null remains visible in type counts but is
-    treated as field nullability rather than schema drift by itself. It never
-    copies values from logs into the result. This makes it useful for spotting
-    schema drift during defensive triage while avoiding request identifiers,
-    user data, or other sensitive field contents.
+    field is present or missing, which coarse value types were observed, and
+    whether more than one non-null type was seen. Null remains visible in type
+    counts but is treated as field nullability rather than schema drift by
+    itself. Values are never copied from logs into the result.
 
-    Field keys are represented by stable display identities in the summary.
-    Compatibility-equivalent keys and keys differing only by invisible format
-    controls are grouped together. If distinct mapping keys normalize to the
-    same display identity, that field is counted at most once per event so
-    presence and coverage can never exceed the number of events or 100 percent.
-    Type counts describe observed raw field occurrences and can therefore be
-    higher than presence when one event contains colliding normalized keys.
+    Field keys use stable display identities. Compatibility-equivalent keys and
+    keys differing only by invisible format controls are grouped together. If
+    distinct mapping keys normalize to the same identity, presence is counted
+    at most once per event, keeping coverage bounded at 100 percent. Type counts
+    describe observed raw field occurrences and can therefore exceed presence.
     """
     counts: Counter[str] = Counter()
     type_counts: dict[str, Counter[str]] = defaultdict(Counter)
@@ -88,6 +78,7 @@ def summarize_field_coverage(events: Iterable[LogEvent]) -> dict[str, Any]:
         non_null_types = {type_name for type_name in types if type_name != "null"}
         fields[key] = {
             "present": counts[key],
+            "missing": event_count - counts[key],
             "coverage": counts[key] / event_count if event_count else 0.0,
             "types": types,
             "type_drift": len(non_null_types) > 1,
