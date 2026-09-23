@@ -22,12 +22,14 @@ def test_json_report_includes_privacy_safe_field_coverage(tmp_path, capsys):
         "fields": {
             "request_id": {
                 "present": 2,
+                "missing": 0,
                 "coverage": 1.0,
                 "types": {"string": 2},
                 "type_drift": False,
             },
             "status": {
                 "present": 1,
+                "missing": 1,
                 "coverage": 0.5,
                 "types": {"integer": 1},
                 "type_drift": False,
