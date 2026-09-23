@@ -56,10 +56,10 @@ def summarize_field_coverage(events: Iterable[LogEvent]) -> dict[str, Any]:
     """Summarize structured-field presence and coarse types without values.
 
     The summary is intentionally schema-oriented: it reports how often each
-    field is present and which coarse value types were observed, but never
-    copies values from logs into the result. This makes it useful for spotting
-    schema drift during defensive triage while avoiding request identifiers,
-    user data, or other sensitive field contents.
+    field is present, which coarse value types were observed, and whether more
+    than one type was seen. It never copies values from logs into the result.
+    This makes it useful for spotting schema drift during defensive triage while
+    avoiding request identifiers, user data, or other sensitive field contents.
 
     Field keys are represented by stable display identities in the summary.
     Compatibility-equivalent keys and keys differing only by invisible format
@@ -80,12 +80,13 @@ def summarize_field_coverage(events: Iterable[LogEvent]) -> dict[str, Any]:
         for key, value in event.fields.items():
             type_counts[_normalized_field_name(key)][_value_type(value)] += 1
 
-    fields = {
-        key: {
+    fields = {}
+    for key in sorted(counts):
+        types = dict(sorted(type_counts[key].items()))
+        fields[key] = {
             "present": counts[key],
             "coverage": counts[key] / event_count if event_count else 0.0,
-            "types": dict(sorted(type_counts[key].items())),
+            "types": types,
+            "type_drift": len(types) > 1,
         }
-        for key in sorted(counts)
-    }
     return {"events": event_count, "fields": fields}
