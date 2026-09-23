@@ -60,9 +60,9 @@ def _has_type_drift(types: set[str]) -> bool:
 def summarize_field_coverage(events: Iterable[LogEvent]) -> dict[str, Any]:
     """Summarize structured-field presence, nullability, and coarse types safely.
 
-    Values are never copied from logs into the result. Type-family evidence is
-    derived only from coarse non-null types so drift remains explainable without
-    exposing field contents.
+    Values are never copied from logs. When incompatible non-null schema families
+    are observed, the report includes those coarse families as privacy-safe drift
+    evidence so analysts do not have to infer why ``type_drift`` was raised.
     """
     counts: Counter[str] = Counter()
     null_counts: Counter[str] = Counter()
@@ -89,7 +89,7 @@ def summarize_field_coverage(events: Iterable[LogEvent]) -> dict[str, Any]:
         non_null_types = {type_name for type_name in types if type_name != "null"}
         type_families = _type_families(non_null_types)
         populated = counts[key] - null_counts[key]
-        fields[key] = {
+        field = {
             "present": counts[key],
             "missing": event_count - counts[key],
             "coverage": counts[key] / event_count if event_count else 0.0,
@@ -98,7 +98,9 @@ def summarize_field_coverage(events: Iterable[LogEvent]) -> dict[str, Any]:
             "nulls": null_counts[key],
             "null_rate": null_counts[key] / counts[key] if counts[key] else 0.0,
             "types": types,
-            "type_families": type_families,
             "type_drift": len(type_families) > 1,
         }
+        if field["type_drift"]:
+            field["type_drift_families"] = type_families
+        fields[key] = field
     return {"events": event_count, "fields": fields}
