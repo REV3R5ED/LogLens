@@ -113,6 +113,13 @@ def report_to_csv(report: Mapping[str, Any]) -> str:
                     details["types"] = types
                 if "type_drift" in stats:
                     details["type_drift"] = bool(stats["type_drift"])
+                for name in (
+                    "type_drift_families",
+                    "type_drift_family_counts",
+                    "type_drift_family_rates",
+                ):
+                    if name in stats:
+                        details[name] = stats[name]
                 detail_summary = _compact_json(details) if details else ""
                 writer.writerow((
                     "field_coverage", _csv_safe(str(field)), _csv_safe(stats.get("present", "")),
