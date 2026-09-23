@@ -46,5 +46,28 @@ def test_field_coverage_deduplicates_keys_with_same_display_identity():
     assert all(field["coverage"] <= 1.0 for field in summary["fields"].values())
 
 
+def test_field_coverage_normalizes_unicode_and_control_characters():
+    events = [
+        LogEvent(
+            message="equivalent keys",
+            fields={"request\u200bid": "one", "requestid": "two", "status\ncode": 200},
+        ),
+        LogEvent(message="compatibility key", fields={"ｒｅｑｕｅｓｔｉｄ": "three"}),
+    ]
+
+    summary = summarize_field_coverage(events)
+
+    assert summary["fields"]["requestid"] == {"present": 2, "coverage": 1.0}
+    assert summary["fields"]["status code"] == {"present": 1, "coverage": 0.5}
+    assert "\u200b" not in repr(summary)
+    assert "\n" not in "".join(summary["fields"])
+
+
+def test_field_coverage_uses_explicit_identity_for_empty_keys():
+    summary = summarize_field_coverage([LogEvent(message="empty", fields={"\u200b": 1})])
+
+    assert summary["fields"] == {"<empty>": {"present": 1, "coverage": 1.0}}
+
+
 def test_field_coverage_handles_empty_input():
     assert summarize_field_coverage([]) == {"events": 0, "fields": {}}
