@@ -104,8 +104,11 @@ def report_to_csv(report: Mapping[str, Any]) -> str:
             for field, stats in sorted(fields.items(), key=lambda item: str(item[0])):
                 if not isinstance(stats, Mapping):
                     continue
-                types = stats.get("types", {})
                 details: dict[str, Any] = {}
+                for name in ("missing", "nulls", "null_rate"):
+                    if name in stats:
+                        details[name] = stats[name]
+                types = stats.get("types", {})
                 if isinstance(types, Mapping):
                     details["types"] = types
                 if "type_drift" in stats:
