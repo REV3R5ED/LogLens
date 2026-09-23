@@ -46,13 +46,25 @@ def _value_type(value: Any) -> str:
     return "other"
 
 
+def _has_type_drift(types: set[str]) -> bool:
+    """Return whether observed non-null types represent incompatible schemas.
+
+    JSON Schema treats integers as numbers, so an integer/number mixture is a
+    numeric widening rather than a type-family change. Other mixed coarse types
+    remain explicit drift signals.
+    """
+    if len(types) <= 1:
+        return False
+    return not types <= {"integer", "number"}
+
+
 def summarize_field_coverage(events: Iterable[LogEvent]) -> dict[str, Any]:
     """Summarize structured-field presence, nullability, and coarse types safely.
 
     The summary is intentionally schema-oriented: it reports how often each
     field is present or missing, how often present values are explicitly null,
-    which coarse value types were observed, and whether more than one non-null
-    type was seen. Values are never copied from logs into the result.
+    which coarse value types were observed, and whether incompatible non-null
+    types were seen. Values are never copied from logs into the result.
 
     Field keys use stable display identities. Compatibility-equivalent keys and
     keys differing only by invisible format controls are grouped together. If
@@ -91,6 +103,6 @@ def summarize_field_coverage(events: Iterable[LogEvent]) -> dict[str, Any]:
             "nulls": null_counts[key],
             "null_rate": null_counts[key] / counts[key] if counts[key] else 0.0,
             "types": types,
-            "type_drift": len(non_null_types) > 1,
+            "type_drift": _has_type_drift(non_null_types),
         }
     return {"events": event_count, "fields": fields}
