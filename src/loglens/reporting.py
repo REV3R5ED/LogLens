@@ -105,7 +105,7 @@ def report_to_csv(report: Mapping[str, Any]) -> str:
                 if not isinstance(stats, Mapping):
                     continue
                 details: dict[str, Any] = {}
-                for name in ("missing", "nulls", "null_rate"):
+                for name in ("missing", "populated", "populated_rate", "nulls", "null_rate"):
                     if name in stats:
                         details[name] = stats[name]
                 types = stats.get("types", {})
