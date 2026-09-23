@@ -20,8 +20,18 @@ def test_json_report_includes_privacy_safe_field_coverage(tmp_path, capsys):
     assert report["field_coverage"] == {
         "events": 2,
         "fields": {
-            "request_id": {"present": 2, "coverage": 1.0, "types": {"string": 2}},
-            "status": {"present": 1, "coverage": 0.5, "types": {"integer": 1}},
+            "request_id": {
+                "present": 2,
+                "coverage": 1.0,
+                "types": {"string": 2},
+                "type_drift": False,
+            },
+            "status": {
+                "present": 1,
+                "coverage": 0.5,
+                "types": {"integer": 1},
+                "type_drift": False,
+            },
         },
     }
     assert "secret-1" not in repr(report["field_coverage"])
