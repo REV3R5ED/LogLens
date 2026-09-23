@@ -34,6 +34,21 @@ def test_field_coverage_deduplicates_keys_with_same_display_identity():
     assert all(field["coverage"] <= 1.0 for field in summary["fields"].values())
 
 
+def test_field_nullability_prefers_populated_normalized_alias_per_event():
+    events = [
+        LogEvent(message="mixed aliases", fields={1: None, "1": "available"}),
+        LogEvent(message="null aliases", fields={1: None, "1": None}),
+    ]
+    summary = summarize_field_coverage(events)
+    field = summary["fields"]["1"]
+    assert field["present"] == 2
+    assert field["nulls"] == 1
+    assert field["null_rate"] == 0.5
+    assert field["types"] == {"null": 3, "string": 1}
+    assert field["type_drift"] is False
+    assert "available" not in repr(summary)
+
+
 def test_field_coverage_normalizes_unicode_and_control_characters():
     events = [
         LogEvent(message="equivalent keys", fields={"request\u200bid": "one", "requestid": "two", "status\ncode": 200}),

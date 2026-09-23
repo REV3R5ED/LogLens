@@ -56,8 +56,10 @@ def summarize_field_coverage(events: Iterable[LogEvent]) -> dict[str, Any]:
 
     Field keys use stable display identities. Compatibility-equivalent keys and
     keys differing only by invisible format controls are grouped together. If
-    distinct mapping keys normalize to the same identity, presence and nulls are
-    counted at most once per event. Type counts retain raw field occurrences.
+    distinct mapping keys normalize to the same identity, presence is counted
+    at most once per event. Nullability is also event-oriented: an identity is
+    null only when it has no populated alias in that event. Type counts retain
+    raw field occurrences.
     """
     counts: Counter[str] = Counter()
     null_counts: Counter[str] = Counter()
@@ -67,9 +69,14 @@ def summarize_field_coverage(events: Iterable[LogEvent]) -> dict[str, Any]:
     for event in events:
         event_count += 1
         display_keys = {_normalized_field_name(key) for key in event.fields}
-        null_keys = {_normalized_field_name(key) for key, value in event.fields.items() if value is None}
+        null_candidates = {
+            _normalized_field_name(key) for key, value in event.fields.items() if value is None
+        }
+        populated_keys = {
+            _normalized_field_name(key) for key, value in event.fields.items() if value is not None
+        }
         counts.update(display_keys)
-        null_counts.update(null_keys)
+        null_counts.update(null_candidates - populated_keys)
         for key, value in event.fields.items():
             type_counts[_normalized_field_name(key)][_value_type(value)] += 1
 
