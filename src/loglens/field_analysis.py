@@ -46,32 +46,23 @@ def _value_type(value: Any) -> str:
     return "other"
 
 
-def _has_type_drift(types: set[str]) -> bool:
-    """Return whether observed non-null types represent incompatible schemas.
+def _type_families(types: set[str]) -> list[str]:
+    """Return deterministic compatible schema families for non-null types."""
+    families = {"number" if type_name in {"integer", "number"} else type_name for type_name in types}
+    return sorted(families)
 
-    JSON Schema treats integers as numbers, so an integer/number mixture is a
-    numeric widening rather than a type-family change. Other mixed coarse types
-    remain explicit drift signals.
-    """
-    if len(types) <= 1:
-        return False
-    return not types <= {"integer", "number"}
+
+def _has_type_drift(types: set[str]) -> bool:
+    """Return whether observed non-null types represent incompatible schemas."""
+    return len(_type_families(types)) > 1
 
 
 def summarize_field_coverage(events: Iterable[LogEvent]) -> dict[str, Any]:
     """Summarize structured-field presence, nullability, and coarse types safely.
 
-    The summary is intentionally schema-oriented: it reports how often each
-    field is present, missing, populated, or explicitly null, which coarse value
-    types were observed, and whether incompatible non-null types were seen.
-    Values are never copied from logs into the result.
-
-    Field keys use stable display identities. Compatibility-equivalent keys and
-    keys differing only by invisible format controls are grouped together. If
-    distinct mapping keys normalize to the same identity, presence is counted
-    at most once per event. Nullability and populated counts are event-oriented:
-    an identity is null only when it has no populated alias in that event. Type
-    counts retain raw field occurrences.
+    Values are never copied from logs. When incompatible non-null schema families
+    are observed, the report includes those coarse families as privacy-safe drift
+    evidence so analysts do not have to infer why ``type_drift`` was raised.
     """
     counts: Counter[str] = Counter()
     null_counts: Counter[str] = Counter()
@@ -96,8 +87,9 @@ def summarize_field_coverage(events: Iterable[LogEvent]) -> dict[str, Any]:
     for key in sorted(counts):
         types = dict(sorted(type_counts[key].items()))
         non_null_types = {type_name for type_name in types if type_name != "null"}
+        type_families = _type_families(non_null_types)
         populated = counts[key] - null_counts[key]
-        fields[key] = {
+        field = {
             "present": counts[key],
             "missing": event_count - counts[key],
             "coverage": counts[key] / event_count if event_count else 0.0,
@@ -106,6 +98,9 @@ def summarize_field_coverage(events: Iterable[LogEvent]) -> dict[str, Any]:
             "nulls": null_counts[key],
             "null_rate": null_counts[key] / counts[key] if counts[key] else 0.0,
             "types": types,
-            "type_drift": _has_type_drift(non_null_types),
+            "type_drift": len(type_families) > 1,
         }
+        if field["type_drift"]:
+            field["type_drift_families"] = type_families
+        fields[key] = field
     return {"events": event_count, "fields": fields}
