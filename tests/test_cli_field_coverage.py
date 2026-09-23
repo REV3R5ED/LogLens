@@ -9,7 +9,7 @@ def test_json_report_includes_privacy_safe_field_coverage(tmp_path, capsys):
     log = tmp_path / "events.jsonl"
     log.write_text(
         '{"level":"INFO","message":"one","request_id":"secret-1","status":200}\n'
-        '{"level":"ERROR","message":"two","request_id":"secret-2"}\n',
+        '{"level":"ERROR","message":"two","request_id":"secret-2","status":null}\n',
         encoding="utf-8",
     )
 
@@ -24,14 +24,18 @@ def test_json_report_includes_privacy_safe_field_coverage(tmp_path, capsys):
                 "present": 2,
                 "missing": 0,
                 "coverage": 1.0,
+                "nulls": 0,
+                "null_rate": 0.0,
                 "types": {"string": 2},
                 "type_drift": False,
             },
             "status": {
-                "present": 1,
-                "missing": 1,
-                "coverage": 0.5,
-                "types": {"integer": 1},
+                "present": 2,
+                "missing": 0,
+                "coverage": 1.0,
+                "nulls": 1,
+                "null_rate": 0.5,
+                "types": {"integer": 1, "null": 1},
                 "type_drift": False,
             },
         },
@@ -44,7 +48,7 @@ def test_csv_report_includes_privacy_safe_field_coverage(tmp_path, capsys):
     log = tmp_path / "events.jsonl"
     log.write_text(
         '{"level":"INFO","message":"one","request_id":"secret-1","status":200}\n'
-        '{"level":"ERROR","message":"two","request_id":"secret-2"}\n',
+        '{"level":"ERROR","message":"two","request_id":"secret-2","status":null}\n',
         encoding="utf-8",
     )
 
@@ -57,8 +61,8 @@ def test_csv_report_includes_privacy_safe_field_coverage(tmp_path, capsys):
 
     assert {tuple(row[key] for key in ("record_type", "name", "value", "score", "message")) for row in coverage_rows} == {
         ("field_coverage_meta", "events", "2", "", ""),
-        ("field_coverage", "request_id", "2", "1.0", '{"type_drift":false,"types":{"string":2}}'),
-        ("field_coverage", "status", "1", "0.5", '{"type_drift":false,"types":{"integer":1}}'),
+        ("field_coverage", "request_id", "2", "1.0", '{"missing":0,"null_rate":0.0,"nulls":0,"type_drift":false,"types":{"string":2}}'),
+        ("field_coverage", "status", "2", "1.0", '{"missing":0,"null_rate":0.5,"nulls":1,"type_drift":false,"types":{"integer":1,"null":1}}'),
     }
     assert "secret-1" not in output
     assert "secret-2" not in output
