@@ -47,28 +47,29 @@ def _value_type(value: Any) -> str:
 
 
 def summarize_field_coverage(events: Iterable[LogEvent]) -> dict[str, Any]:
-    """Summarize structured-field presence, absence, and coarse types safely.
+    """Summarize structured-field presence, nullability, and coarse types safely.
 
     The summary is intentionally schema-oriented: it reports how often each
-    field is present or missing, which coarse value types were observed, and
-    whether more than one non-null type was seen. Null remains visible in type
-    counts but is treated as field nullability rather than schema drift by
-    itself. Values are never copied from logs into the result.
+    field is present or missing, how often present values are explicitly null,
+    which coarse value types were observed, and whether more than one non-null
+    type was seen. Values are never copied from logs into the result.
 
     Field keys use stable display identities. Compatibility-equivalent keys and
     keys differing only by invisible format controls are grouped together. If
-    distinct mapping keys normalize to the same identity, presence is counted
-    at most once per event, keeping coverage bounded at 100 percent. Type counts
-    describe observed raw field occurrences and can therefore exceed presence.
+    distinct mapping keys normalize to the same identity, presence and nulls are
+    counted at most once per event. Type counts retain raw field occurrences.
     """
     counts: Counter[str] = Counter()
+    null_counts: Counter[str] = Counter()
     type_counts: dict[str, Counter[str]] = defaultdict(Counter)
     event_count = 0
 
     for event in events:
         event_count += 1
         display_keys = {_normalized_field_name(key) for key in event.fields}
+        null_keys = {_normalized_field_name(key) for key, value in event.fields.items() if value is None}
         counts.update(display_keys)
+        null_counts.update(null_keys)
         for key, value in event.fields.items():
             type_counts[_normalized_field_name(key)][_value_type(value)] += 1
 
@@ -80,6 +81,8 @@ def summarize_field_coverage(events: Iterable[LogEvent]) -> dict[str, Any]:
             "present": counts[key],
             "missing": event_count - counts[key],
             "coverage": counts[key] / event_count if event_count else 0.0,
+            "nulls": null_counts[key],
+            "null_rate": null_counts[key] / counts[key] if counts[key] else 0.0,
             "types": types,
             "type_drift": len(non_null_types) > 1,
         }
