@@ -46,23 +46,31 @@ def _value_type(value: Any) -> str:
     return "other"
 
 
+def _type_family(type_name: str) -> str:
+    """Return the compatible schema family for one coarse non-null type."""
+    return "number" if type_name in {"integer", "number"} else type_name
+
+
 def _type_families(types: set[str]) -> list[str]:
     """Return deterministic compatible schema families for non-null types."""
-    families = {"number" if type_name in {"integer", "number"} else type_name for type_name in types}
-    return sorted(families)
+    return sorted({_type_family(type_name) for type_name in types})
 
 
-def _has_type_drift(types: set[str]) -> bool:
-    """Return whether observed non-null types represent incompatible schemas."""
-    return len(_type_families(types)) > 1
+def _type_family_counts(types: dict[str, int]) -> dict[str, int]:
+    """Aggregate non-null coarse type occurrences into schema families."""
+    family_counts: Counter[str] = Counter()
+    for type_name, count in types.items():
+        if type_name != "null":
+            family_counts[_type_family(type_name)] += count
+    return dict(sorted(family_counts.items()))
 
 
 def summarize_field_coverage(events: Iterable[LogEvent]) -> dict[str, Any]:
     """Summarize structured-field presence, nullability, and coarse types safely.
 
     Values are never copied from logs. When incompatible non-null schema families
-    are observed, the report includes those coarse families as privacy-safe drift
-    evidence so analysts do not have to infer why ``type_drift`` was raised.
+    are observed, the report includes those coarse families and their occurrence
+    counts as privacy-safe drift evidence.
     """
     counts: Counter[str] = Counter()
     null_counts: Counter[str] = Counter()
@@ -102,5 +110,6 @@ def summarize_field_coverage(events: Iterable[LogEvent]) -> dict[str, Any]:
         }
         if field["type_drift"]:
             field["type_drift_families"] = type_families
+            field["type_drift_family_counts"] = _type_family_counts(types)
         fields[key] = field
     return {"events": event_count, "fields": fields}
