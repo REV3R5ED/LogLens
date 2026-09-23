@@ -104,9 +104,11 @@ def report_to_csv(report: Mapping[str, Any]) -> str:
             for field, stats in sorted(fields.items(), key=lambda item: str(item[0])):
                 if not isinstance(stats, Mapping):
                     continue
+                types = stats.get("types", {})
+                type_summary = _compact_json(types) if isinstance(types, Mapping) else ""
                 writer.writerow((
                     "field_coverage", _csv_safe(str(field)), _csv_safe(stats.get("present", "")),
-                    "", _csv_safe(stats.get("coverage", "")), "",
+                    "", _csv_safe(stats.get("coverage", "")), _csv_safe(type_summary),
                 ))
 
     findings: Sequence[Mapping[str, Any]] = report.get("findings", ())
