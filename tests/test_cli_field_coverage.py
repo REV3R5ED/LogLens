@@ -65,8 +65,8 @@ def test_csv_report_includes_privacy_safe_field_coverage(tmp_path, capsys):
 
     assert {tuple(row[key] for key in ("record_type", "name", "value", "score", "message")) for row in coverage_rows} == {
         ("field_coverage_meta", "events", "2", "", ""),
-        ("field_coverage", "request_id", "2", "1.0", '{"missing":0,"null_rate":0.0,"nulls":0,"type_drift":false,"types":{"string":2}}'),
-        ("field_coverage", "status", "2", "1.0", '{"missing":0,"null_rate":0.5,"nulls":1,"type_drift":false,"types":{"integer":1,"null":1}}'),
+        ("field_coverage", "request_id", "2", "1.0", '{"missing":0,"null_rate":0.0,"nulls":0,"populated":2,"populated_rate":1.0,"type_drift":false,"types":{"string":2}}'),
+        ("field_coverage", "status", "2", "1.0", '{"missing":0,"null_rate":0.5,"nulls":1,"populated":1,"populated_rate":0.5,"type_drift":false,"types":{"integer":1,"null":1}}'),
     }
     assert "secret-1" not in output
     assert "secret-2" not in output
