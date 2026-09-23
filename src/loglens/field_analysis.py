@@ -62,16 +62,16 @@ def summarize_field_coverage(events: Iterable[LogEvent]) -> dict[str, Any]:
     """Summarize structured-field presence, nullability, and coarse types safely.
 
     The summary is intentionally schema-oriented: it reports how often each
-    field is present or missing, how often present values are explicitly null,
-    which coarse value types were observed, and whether incompatible non-null
-    types were seen. Values are never copied from logs into the result.
+    field is present, missing, populated, or explicitly null, which coarse value
+    types were observed, and whether incompatible non-null types were seen.
+    Values are never copied from logs into the result.
 
     Field keys use stable display identities. Compatibility-equivalent keys and
     keys differing only by invisible format controls are grouped together. If
     distinct mapping keys normalize to the same identity, presence is counted
-    at most once per event. Nullability is also event-oriented: an identity is
-    null only when it has no populated alias in that event. Type counts retain
-    raw field occurrences.
+    at most once per event. Nullability and populated counts are event-oriented:
+    an identity is null only when it has no populated alias in that event. Type
+    counts retain raw field occurrences.
     """
     counts: Counter[str] = Counter()
     null_counts: Counter[str] = Counter()
@@ -96,10 +96,13 @@ def summarize_field_coverage(events: Iterable[LogEvent]) -> dict[str, Any]:
     for key in sorted(counts):
         types = dict(sorted(type_counts[key].items()))
         non_null_types = {type_name for type_name in types if type_name != "null"}
+        populated = counts[key] - null_counts[key]
         fields[key] = {
             "present": counts[key],
             "missing": event_count - counts[key],
             "coverage": counts[key] / event_count if event_count else 0.0,
+            "populated": populated,
+            "populated_rate": populated / event_count if event_count else 0.0,
             "nulls": null_counts[key],
             "null_rate": null_counts[key] / counts[key] if counts[key] else 0.0,
             "types": types,
