@@ -20,6 +20,6 @@ For the example above, `status` is present in both events but has two observed t
 
 Type counts describe raw structured-field occurrences. If multiple source keys normalize to the same safe display identity inside one event, presence is still counted at most once for that event while type counts retain the observed occurrences. This keeps coverage bounded at 100% while preserving useful schema evidence. `type_drift` is derived only from the set of coarse types, not from field values or occurrence counts.
 
-The same privacy-safe field coverage and type summaries are available in JSON and CSV reports. The explicit `type_drift` flag is part of the structured field-coverage object and therefore appears in JSON reports; CSV continues to store the underlying type summary as compact JSON in the row's details column so downstream tooling can derive the same condition while preserving the existing CSV shape.
+The same privacy-safe field coverage, type summaries, and explicit drift signal are available in JSON and CSV reports. JSON stores `types` and `type_drift` directly on each field-coverage object. CSV keeps its stable six-column shape and stores a compact JSON details object in the `message` cell, for example `{"type_drift":true,"types":{"integer":1,"string":1}}`. This lets spreadsheet exports and downstream automation consume the drift decision directly without reconstructing it from type counts.
 
 This helper accepts any iterable of `LogEvent` objects, including generators, and consumes it once.

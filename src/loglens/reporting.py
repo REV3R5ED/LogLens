@@ -105,10 +105,15 @@ def report_to_csv(report: Mapping[str, Any]) -> str:
                 if not isinstance(stats, Mapping):
                     continue
                 types = stats.get("types", {})
-                type_summary = _compact_json(types) if isinstance(types, Mapping) else ""
+                details: dict[str, Any] = {}
+                if isinstance(types, Mapping):
+                    details["types"] = types
+                if "type_drift" in stats:
+                    details["type_drift"] = bool(stats["type_drift"])
+                detail_summary = _compact_json(details) if details else ""
                 writer.writerow((
                     "field_coverage", _csv_safe(str(field)), _csv_safe(stats.get("present", "")),
-                    "", _csv_safe(stats.get("coverage", "")), _csv_safe(type_summary),
+                    "", _csv_safe(stats.get("coverage", "")), _csv_safe(detail_summary),
                 ))
 
     findings: Sequence[Mapping[str, Any]] = report.get("findings", ())
