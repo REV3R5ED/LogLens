@@ -65,12 +65,20 @@ def _type_family_counts(types: dict[str, int]) -> dict[str, int]:
     return dict(sorted(family_counts.items()))
 
 
+def _type_family_rates(family_counts: dict[str, int]) -> dict[str, float]:
+    """Return each schema family's share of non-null field occurrences."""
+    total = sum(family_counts.values())
+    if not total:
+        return {}
+    return {family: count / total for family, count in family_counts.items()}
+
+
 def summarize_field_coverage(events: Iterable[LogEvent]) -> dict[str, Any]:
     """Summarize structured-field presence, nullability, and coarse types safely.
 
     Values are never copied from logs. When incompatible non-null schema families
     are observed, the report includes those coarse families and their occurrence
-    counts as privacy-safe drift evidence.
+    prevalence as privacy-safe drift evidence.
     """
     counts: Counter[str] = Counter()
     null_counts: Counter[str] = Counter()
@@ -109,7 +117,9 @@ def summarize_field_coverage(events: Iterable[LogEvent]) -> dict[str, Any]:
             "type_drift": len(type_families) > 1,
         }
         if field["type_drift"]:
+            family_counts = _type_family_counts(types)
             field["type_drift_families"] = type_families
-            field["type_drift_family_counts"] = _type_family_counts(types)
+            field["type_drift_family_counts"] = family_counts
+            field["type_drift_family_rates"] = _type_family_rates(family_counts)
         fields[key] = field
     return {"events": event_count, "fields": fields}
