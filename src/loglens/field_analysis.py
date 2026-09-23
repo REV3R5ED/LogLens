@@ -57,9 +57,11 @@ def summarize_field_coverage(events: Iterable[LogEvent]) -> dict[str, Any]:
 
     The summary is intentionally schema-oriented: it reports how often each
     field is present, which coarse value types were observed, and whether more
-    than one type was seen. It never copies values from logs into the result.
-    This makes it useful for spotting schema drift during defensive triage while
-    avoiding request identifiers, user data, or other sensitive field contents.
+    than one non-null type was seen. Null remains visible in type counts but is
+    treated as field nullability rather than schema drift by itself. It never
+    copies values from logs into the result. This makes it useful for spotting
+    schema drift during defensive triage while avoiding request identifiers,
+    user data, or other sensitive field contents.
 
     Field keys are represented by stable display identities in the summary.
     Compatibility-equivalent keys and keys differing only by invisible format
@@ -83,10 +85,11 @@ def summarize_field_coverage(events: Iterable[LogEvent]) -> dict[str, Any]:
     fields = {}
     for key in sorted(counts):
         types = dict(sorted(type_counts[key].items()))
+        non_null_types = {type_name for type_name in types if type_name != "null"}
         fields[key] = {
             "present": counts[key],
             "coverage": counts[key] / event_count if event_count else 0.0,
             "types": types,
-            "type_drift": len(types) > 1,
+            "type_drift": len(non_null_types) > 1,
         }
     return {"events": event_count, "fields": fields}

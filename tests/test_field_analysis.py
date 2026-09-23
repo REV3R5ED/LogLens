@@ -78,14 +78,17 @@ def test_field_coverage_uses_explicit_identity_for_empty_keys():
 def test_field_coverage_classifies_coarse_types_without_values():
     summary = summarize_field_coverage([
         LogEvent(message="one", fields={
-            "mixed": None, "flag": True, "ratio": 1.5, "tags": ["private"],
-            "context": {"token": "secret"},
+            "nullable": None, "drifting": None, "flag": True, "ratio": 1.5,
+            "tags": ["private"], "context": {"token": "secret"},
         }),
-        LogEvent(message="two", fields={"mixed": 42}),
+        LogEvent(message="two", fields={"nullable": 42, "drifting": 42}),
+        LogEvent(message="three", fields={"drifting": "forty-two"}),
     ])
 
-    assert summary["fields"]["mixed"]["types"] == {"integer": 1, "null": 1}
-    assert summary["fields"]["mixed"]["type_drift"] is True
+    assert summary["fields"]["nullable"]["types"] == {"integer": 1, "null": 1}
+    assert summary["fields"]["nullable"]["type_drift"] is False
+    assert summary["fields"]["drifting"]["types"] == {"integer": 1, "null": 1, "string": 1}
+    assert summary["fields"]["drifting"]["type_drift"] is True
     assert summary["fields"]["flag"]["types"] == {"boolean": 1}
     assert summary["fields"]["flag"]["type_drift"] is False
     assert summary["fields"]["ratio"]["types"] == {"number": 1}
@@ -93,6 +96,7 @@ def test_field_coverage_classifies_coarse_types_without_values():
     assert summary["fields"]["context"]["types"] == {"object": 1}
     assert "private" not in repr(summary)
     assert "secret" not in repr(summary)
+    assert "forty-two" not in repr(summary)
 
 
 def test_field_coverage_handles_empty_input():
