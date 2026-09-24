@@ -7,6 +7,9 @@ The project follows semantic versioning for portfolio releases. LogLens is a def
 ## [Unreleased]
 
 ### Added
+- Structured field coverage now reports presence, missing, populated, null, and rate metrics so analysts can distinguish absent telemetry from present-but-null values without exposing raw field contents.
+- Structured field analysis now detects incompatible schema type drift while treating integer/number widening as compatible; drift reports include privacy-safe type families, family counts, and normalized family rates for explainable prevalence triage.
+- CSV field-coverage rows now preserve populated/null completeness and schema-drift family evidence in deterministic embedded JSON while keeping the existing six-column CSV contract stable.
 - Message substring filtering now applies Unicode compatibility normalization and ignores invisible format controls while preserving structural controls as separators, so visually equivalent log text remains searchable without creating matches across record boundaries.
 - Text/logfmt records now recognize `source`, `service`, `component`, and `logger` key/value fields as logical event sources, allowing source filtering, per-service health summaries, and source-scoped anomaly detection to work consistently for common structured text logs while retaining file provenance as the fallback.
 - `journalctl -o json` records now normalize `MESSAGE`, syslog `PRIORITY`, `__REALTIME_TIMESTAMP`, and common service identifiers (`_SYSTEMD_UNIT`, `SYSLOG_IDENTIFIER`, `_COMM`) into LogLens message, level, timestamp, and logical source fields while preserving explicit canonical-field precedence and unrelated journal metadata.
