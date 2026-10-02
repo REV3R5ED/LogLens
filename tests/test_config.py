@@ -1,6 +1,7 @@
 """TOML/JSON config files with named policies and per-source overrides."""
 
 import json
+import sys
 
 import pytest
 
@@ -13,6 +14,12 @@ def _write(tmp_path, name, text):
     return path
 
 
+_TOML_ONLY = pytest.mark.skipif(
+    sys.version_info < (3, 11), reason="stdlib tomllib needs Python 3.11+"
+)
+
+
+@_TOML_ONLY
 def test_toml_named_policies_load_with_defaults(tmp_path):
     path = _write(tmp_path, "loglens.toml", """
 [policy.default]
@@ -40,6 +47,7 @@ def test_json_config_uses_same_schema(tmp_path):
     assert policies["default"].burst_window_seconds == 30
 
 
+@_TOML_ONLY
 def test_toml_scoring_section_is_parsed(tmp_path):
     path = _write(tmp_path, "loglens.toml", """
 [policy.default]
@@ -56,6 +64,7 @@ max_finding_context = 100
     assert scoring.medium_cutoff == 60  # untouched default
 
 
+@_TOML_ONLY
 def test_toml_per_source_overrides_are_parsed(tmp_path):
     path = _write(tmp_path, "loglens.toml", """
 [policy.default.sources."payments-api"]
@@ -100,6 +109,7 @@ def test_missing_config_file_is_rejected(tmp_path):
         load_policies(tmp_path / "missing.toml")
 
 
+@_TOML_ONLY
 def test_invalid_toml_is_rejected(tmp_path):
     path = _write(tmp_path, "loglens.toml", "[policy.default\nerror_threshold = ")
     with pytest.raises(ConfigError, match="invalid TOML"):

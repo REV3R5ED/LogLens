@@ -6,7 +6,7 @@ import json
 from loglens.cli import main
 
 
-def _write_config(tmp_path, text, name="loglens.toml"):
+def _write_config(tmp_path, text, name="loglens.json"):
     path = tmp_path / name
     path.write_text(text, encoding="utf-8")
     return path
@@ -25,13 +25,9 @@ def _log_with_sources(tmp_path):
 
 def test_config_policy_drives_thresholds_and_report(tmp_path, capsys):
     log = _log_with_sources(tmp_path)
-    config = _write_config(tmp_path, """
-[policy.default]
-error_threshold = 3
-
-[policy.default.sources."noisy"]
-error_threshold = 100
-""")
+    config = _write_config(tmp_path, """\
+{"policy": {"default": {"error_threshold": 3,
+                        "sources": {"noisy": {"error_threshold": 100}}}}}""")
     exit_code = main(["analyze", str(log), "--format", "json", "--config", str(config), "--json"])
     assert exit_code == 0
     report = json.loads(capsys.readouterr().out)
@@ -45,7 +41,7 @@ error_threshold = 100
 
 def test_explicit_cli_flags_override_config_values(tmp_path, capsys):
     log = _log_with_sources(tmp_path)
-    config = _write_config(tmp_path, "[policy.default]\nerror_threshold = 100\n")
+    config = _write_config(tmp_path, '{"policy": {"default": {"error_threshold": 100}}}')
     exit_code = main([
         "analyze", str(log), "--format", "json",
         "--config", str(config), "--error-threshold", "3", "--json",
@@ -58,13 +54,9 @@ def test_explicit_cli_flags_override_config_values(tmp_path, capsys):
 
 def test_named_policy_selection(tmp_path, capsys):
     log = _log_with_sources(tmp_path)
-    config = _write_config(tmp_path, """
-[policy.default]
-error_threshold = 100
-
-[policy.strict]
-error_threshold = 3
-""")
+    config = _write_config(tmp_path, """\
+{"policy": {"default": {"error_threshold": 100},
+            "strict": {"error_threshold": 3}}}""")
     exit_code = main([
         "analyze", str(log), "--format", "json",
         "--config", str(config), "--policy", "strict", "--json",
@@ -77,7 +69,7 @@ error_threshold = 3
 
 def test_unknown_policy_is_a_structured_error(tmp_path, capsys):
     log = _log_with_sources(tmp_path)
-    config = _write_config(tmp_path, "[policy.default]\n")
+    config = _write_config(tmp_path, '{"policy": {"default": {}}}')
     exit_code = main(["analyze", str(log), "--config", str(config), "--policy", "nope"])
     captured = capsys.readouterr()
     assert exit_code == 1
@@ -97,11 +89,8 @@ def test_policy_flag_requires_config(tmp_path, capsys):
 def test_config_scoring_changes_report_scores(tmp_path, capsys):
     log = tmp_path / "app.log"
     log.write_text("ERROR disk full\nERROR disk full\n", encoding="utf-8")
-    config = _write_config(tmp_path, """
-[policy.default.scoring]
-medium_cutoff = 95
-high_cutoff = 99
-""")
+    config = _write_config(tmp_path, """\
+{"policy": {"default": {"scoring": {"medium_cutoff": 95, "high_cutoff": 99}}}}""")
     exit_code = main([
         "analyze", str(log), "--error-threshold", "2", "--repeat-threshold", "2",
         "--config", str(config), "--json",
