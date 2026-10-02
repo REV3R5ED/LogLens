@@ -16,6 +16,15 @@ def report_to_json(report: Mapping[str, Any]) -> str:
     return json.dumps(report, indent=2, sort_keys=True, allow_nan=False)
 
 
+def report_to_json_line(report: Mapping[str, Any]) -> str:
+    """Serialize a report as a single deterministic JSON line for streaming output.
+
+    Watch mode emits one object per scan so downstream tooling can consume the
+    stream as JSONL; keys stay sorted and non-finite numbers stay rejected.
+    """
+    return json.dumps(report, sort_keys=True, allow_nan=False)
+
+
 def _compact_json(value: Any) -> str:
     """Serialize machine-readable CSV subfields as strict, deterministic JSON."""
     return json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)

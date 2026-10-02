@@ -73,20 +73,23 @@ def _type_family_rates(family_counts: dict[str, int]) -> dict[str, float]:
     return {family: count / total for family, count in family_counts.items()}
 
 
-def summarize_field_coverage(events: Iterable[LogEvent]) -> dict[str, Any]:
-    """Summarize structured-field presence, nullability, and coarse types safely.
+class FieldCoverageAccumulator:
+    """Incremental structured-field coverage aggregation for streaming analysis.
 
-    Values are never copied from logs. When incompatible non-null schema families
-    are observed, the report includes those coarse families and their occurrence
-    prevalence as privacy-safe drift evidence.
+    Feeding events one at a time produces exactly the same coverage report as
+    :func:`summarize_field_coverage`, while keeping memory proportional to
+    distinct field names and types rather than the total event count. Field
+    values are never copied from logs.
     """
-    counts: Counter[str] = Counter()
-    null_counts: Counter[str] = Counter()
-    type_counts: dict[str, Counter[str]] = defaultdict(Counter)
-    event_count = 0
 
-    for event in events:
-        event_count += 1
+    def __init__(self) -> None:
+        self.event_count = 0
+        self.counts: Counter[str] = Counter()
+        self.null_counts: Counter[str] = Counter()
+        self.type_counts: dict[str, Counter[str]] = defaultdict(Counter)
+
+    def add(self, event: LogEvent) -> None:
+        self.event_count += 1
         display_keys = {_normalized_field_name(key) for key in event.fields}
         null_candidates = {
             _normalized_field_name(key) for key, value in event.fields.items() if value is None
@@ -94,32 +97,47 @@ def summarize_field_coverage(events: Iterable[LogEvent]) -> dict[str, Any]:
         populated_keys = {
             _normalized_field_name(key) for key, value in event.fields.items() if value is not None
         }
-        counts.update(display_keys)
-        null_counts.update(null_candidates - populated_keys)
+        self.counts.update(display_keys)
+        self.null_counts.update(null_candidates - populated_keys)
         for key, value in event.fields.items():
-            type_counts[_normalized_field_name(key)][_value_type(value)] += 1
+            self.type_counts[_normalized_field_name(key)][_value_type(value)] += 1
 
-    fields = {}
-    for key in sorted(counts):
-        types = dict(sorted(type_counts[key].items()))
-        non_null_types = {type_name for type_name in types if type_name != "null"}
-        type_families = _type_families(non_null_types)
-        populated = counts[key] - null_counts[key]
-        field = {
-            "present": counts[key],
-            "missing": event_count - counts[key],
-            "coverage": counts[key] / event_count if event_count else 0.0,
-            "populated": populated,
-            "populated_rate": populated / event_count if event_count else 0.0,
-            "nulls": null_counts[key],
-            "null_rate": null_counts[key] / counts[key] if counts[key] else 0.0,
-            "types": types,
-            "type_drift": len(type_families) > 1,
-        }
-        if field["type_drift"]:
-            family_counts = _type_family_counts(types)
-            field["type_drift_families"] = type_families
-            field["type_drift_family_counts"] = family_counts
-            field["type_drift_family_rates"] = _type_family_rates(family_counts)
-        fields[key] = field
-    return {"events": event_count, "fields": fields}
+    def result(self) -> dict[str, Any]:
+        """Return the deterministic privacy-safe coverage report."""
+        fields = {}
+        for key in sorted(self.counts):
+            types = dict(sorted(self.type_counts[key].items()))
+            non_null_types = {type_name for type_name in types if type_name != "null"}
+            type_families = _type_families(non_null_types)
+            populated = self.counts[key] - self.null_counts[key]
+            field = {
+                "present": self.counts[key],
+                "missing": self.event_count - self.counts[key],
+                "coverage": self.counts[key] / self.event_count if self.event_count else 0.0,
+                "populated": populated,
+                "populated_rate": populated / self.event_count if self.event_count else 0.0,
+                "nulls": self.null_counts[key],
+                "null_rate": self.null_counts[key] / self.counts[key] if self.counts[key] else 0.0,
+                "types": types,
+                "type_drift": len(type_families) > 1,
+            }
+            if field["type_drift"]:
+                family_counts = _type_family_counts(types)
+                field["type_drift_families"] = type_families
+                field["type_drift_family_counts"] = family_counts
+                field["type_drift_family_rates"] = _type_family_rates(family_counts)
+            fields[key] = field
+        return {"events": self.event_count, "fields": fields}
+
+
+def summarize_field_coverage(events: Iterable[LogEvent]) -> dict[str, Any]:
+    """Summarize structured-field presence, nullability, and coarse types safely.
+
+    Values are never copied from logs. When incompatible non-null schema families
+    are observed, the report includes those coarse families and their occurrence
+    prevalence as privacy-safe drift evidence.
+    """
+    accumulator = FieldCoverageAccumulator()
+    for event in events:
+        accumulator.add(event)
+    return accumulator.result()
