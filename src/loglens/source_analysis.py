@@ -81,26 +81,49 @@ def summarize_sources(events: Iterable[LogEvent]) -> list[SourceHealth]:
     inclusive 0..1 range. The function is read-only and performs no network or
     filesystem I/O.
     """
-    grouped: dict[str, list[LogEvent]] = defaultdict(list)
+    accumulator = SourceHealthAccumulator()
     for event in events:
-        grouped[_normalized_source(event.source)].append(event)
+        accumulator.add(event)
+    return accumulator.summaries()
 
-    summaries: list[SourceHealth] = []
-    for source in sorted(grouped):
-        source_events = grouped[source]
-        levels = Counter(_normalized_level(event.level) for event in source_events)
-        error_events = sum(levels[level] for level in _ERROR_LEVELS)
-        total = len(source_events)
-        summaries.append(
-            SourceHealth(
-                source=source,
-                events=total,
-                error_events=error_events,
-                error_rate=error_events / total,
-                levels=dict(sorted(levels.items())),
+
+class SourceHealthAccumulator:
+    """Incremental per-source health aggregation for streaming analysis.
+
+    Feeding events one at a time produces exactly the same summaries as
+    :func:`summarize_sources`, while keeping memory proportional to distinct
+    sources and levels rather than the total event count.
+    """
+
+    def __init__(self) -> None:
+        self._totals: Counter[str] = Counter()
+        self._errors: Counter[str] = Counter()
+        self._levels: dict[str, Counter[str]] = defaultdict(Counter)
+
+    def add(self, event: LogEvent) -> None:
+        source = _normalized_source(event.source)
+        level = _normalized_level(event.level)
+        self._totals[source] += 1
+        self._levels[source][level] += 1
+        if level in _ERROR_LEVELS:
+            self._errors[source] += 1
+
+    def summaries(self) -> list[SourceHealth]:
+        """Return deterministic per-source summaries sorted by source."""
+        summaries: list[SourceHealth] = []
+        for source in sorted(self._totals):
+            total = self._totals[source]
+            error_events = self._errors[source]
+            summaries.append(
+                SourceHealth(
+                    source=source,
+                    events=total,
+                    error_events=error_events,
+                    error_rate=error_events / total,
+                    levels=dict(sorted(self._levels[source].items())),
+                )
             )
-        )
-    return summaries
+        return summaries
 
 
 def concentrated_error_sources(

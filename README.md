@@ -16,7 +16,7 @@ LogLens helps analysts quickly turn raw logs into useful defensive signals witho
 
 Current capabilities:
 
-- installable Python package and `loglens` CLI
+- installable Python package, `loglens` CLI, and `python -m loglens` entry point
 - normalized `LogEvent` records
 - JSON log parsing with common field aliases, including OpenTelemetry `severityText`/`severityNumber` and Unix-nanosecond timestamps
 - unstructured text parsing with level detection and leading ISO-8601 timestamp recognition
@@ -25,10 +25,13 @@ Current capabilities:
 - preservation of unknown JSON fields for later analysis
 - case-insensitive level and message filtering
 - reusable level/source aggregation and per-source health summaries
-- deterministic anomaly rules for elevated errors, repeated messages, and timestamp-aware error bursts
-- analyst-configurable detection thresholds with safe validation
-- deterministic UTC time-window baselines for timestamped events
-- transparent 0-100 anomaly scoring with severity derived from score
+- deterministic anomaly rules for elevated errors, repeated messages, timestamp-aware error bursts, and never-before-seen (novel) messages
+- analyst-configurable detection thresholds with safe validation, via CLI flags or versioned TOML/JSON config files with named policies and per-source overrides
+- tunable 0-100 anomaly scoring weights and severity cutoffs
+- deterministic UTC time-window baselines for timestamped events, plus baseline diffing against saved reference reports
+- live `--follow`/`--watch` tail mode that emits findings as thresholds trip
+- streaming parse→filter→detect pipeline (no full event list in memory) with `--progress` reporting
+- structured `logging` diagnostics on stderr (`-v`/`--verbose`); reports stay on stdout
 - reusable deterministic JSON and long-form CSV report serializers
 - CSV preservation of effective detection configuration and time-window baselines
 - CLI integration coverage for text, JSON, RFC 5424, CSV, filtering, parse failures, and operational errors
@@ -39,6 +42,7 @@ Current capabilities:
 ```bash
 python -m pip install -e .
 loglens analyze /path/to/app.log
+python -m loglens analyze /path/to/app.log   # module entry point also works
 loglens analyze /path/to/events.jsonl --format json --json
 loglens analyze /path/to/forwarded.log --format rfc5424 --json
 loglens analyze /path/to/app.log --level ERROR --level WARN
@@ -46,6 +50,8 @@ loglens analyze /path/to/app.log --contains "database" --json
 loglens analyze /path/to/app.log --error-threshold 10 --repeat-threshold 8 --json
 loglens analyze /path/to/events.jsonl --window-minutes 5 --json
 loglens analyze /path/to/events.jsonl --window-minutes 5 --csv > report.csv
+loglens analyze /var/log/app.log --follow --fail-on-severity medium   # live tail
+loglens analyze /path/to/app.log --config loglens.toml --policy strict --json
 pytest -q
 ```
 
@@ -54,6 +60,8 @@ For a short end-to-end reviewer scenario, see the [reproducible portfolio demo](
 `--level` can be repeated and combined with `--contains`. Reports distinguish total input records from records matching the active filters, so filtering remains visible and auditable. Detection runs only on the matched event set. `--json` and `--csv` are mutually exclusive report formats.
 
 Detection thresholds can be tuned per analysis with `--error-threshold` and `--repeat-threshold`. The defaults remain 5 and 5. Error thresholds must be at least 1 and repeat thresholds at least 2, preventing nonsensical configurations. Machine-readable reports include the effective detection configuration so saved results remain reproducible and auditable.
+
+For repeatable runs, thresholds (plus scoring weights and per-source overrides) can live in a versioned TOML or JSON config file with named policies: `loglens analyze app.log --config loglens.toml --policy strict`. Explicit CLI flags always override config file values. See [Detection policies](docs/configuration.md).
 
 ### RFC 5424 syslog
 
@@ -79,6 +87,28 @@ Time windows are descriptive baselines rather than incident verdicts. They provi
 
 Every finding includes a deterministic score from 0 to 100. A rule that reaches its configured threshold starts at 50 points. Up to 25 additional points reflect how far the observed count exceeds the threshold, and up to 25 reflect the finding's prevalence across the matched event set. Scores below 60 are `low`, 60-79 are `medium`, and 80 or above are `high`. This is deliberately simple and explainable: the score is a triage aid, not a probability or incident verdict.
 
+The weights (50/25/25), cutoffs (60/80), and finding-context bound are tunable per policy in a [config file](docs/configuration.md); JSON reports record the effective `scoring_config`.
+
+### Detection policies
+
+`--config loglens.toml` (or `.json`) loads named detection policies so runs are reproducible without long command lines. Policies set global thresholds, scoring weights, and per-source threshold overrides — for example, raising `error_threshold` for one noisy service instead of weakening detection globally. `--policy <name>` selects a policy; explicit CLI flags always override file values. See [Detection policies](docs/configuration.md).
+
+### Live tail mode
+
+`loglens analyze /var/log/app.log --follow` (alias `--watch`) tails a growing file and emits findings as thresholds trip, reusing the detector and `--fail-on-severity` exit semantics. Text mode prints findings as they appear; `--json` emits one JSON object per scan (JSONL). Truncation restarts from the beginning; `--watch-timeout` bounds the run. See [Live analysis](docs/live-analysis.md).
+
+### Baseline diff
+
+`--baseline-diff reference.json` (with `--window-minutes`) compares the current run's deterministic UTC windows against a saved report and emits `baseline-drift` findings when a window's absolute error-rate delta reaches `--baseline-diff-threshold` (default 0.2). Drift scores reuse the transparent scale, and new windows with errors produce low-severity `baseline-new-window` findings. See [Live analysis](docs/live-analysis.md).
+
+### Novelty detection
+
+`--novelty-store corpus.json` enables the `novel-message` rule, which flags `(source, level, message)` combinations never observed in a persisted JSON corpus — the complement to `repeated-message`. Bootstrap with `--novelty-learn` (updates the store, emits no findings); detection runs never mutate the store. See [Live analysis](docs/live-analysis.md).
+
+### Streaming analysis
+
+Parsing, filtering, and detection run as a single lazy pass — the full event list is never materialized, so multi-gigabyte logs stay bounded by distinct sources/messages rather than total record count. Rule semantics are identical to the list-based path. `--progress` logs input progress to stderr, and `-v`/`--verbose` enables debug diagnostics; reports always stay on stdout.
+
 ### Reusable reports
 
 JSON and CSV output share reusable serializers in `loglens.reporting`, keeping formatting separate from parsing and detection. JSON is deterministic and human-readable. CSV uses the stable long-form columns `record_type,name,value,severity,score,message`; in addition to summaries, aggregates, and findings, it preserves the effective detection thresholds and time-baseline metadata. Time-window rows carry the window start, event count, error-event count, and a deterministic JSON level distribution so spreadsheet exports do not silently lose baseline context. Log-derived commas and quotes are escaped by Python's standard CSV writer.
@@ -93,7 +123,7 @@ LogLens normalizes the timestamp, severity, message and source while retaining f
 
 ## Built-in anomaly rules
 
-The detector intentionally favors explainability over opaque scoring. It reports an `elevated-errors` finding when a logical source reaches the configured number of ERROR/CRITICAL/FATAL events, a `repeated-message` finding when the same non-empty message reaches its configured threshold within a source/level scope, and an `error-burst` finding when timestamped error events from one source cluster inside the configured burst window. Burst timestamps are normalized to UTC before comparison, including explicit offsets; offset-less timestamps are treated as UTC consistently with LogLens baseline behavior. Findings include rule name, severity, score, explanation, and observed count in machine-readable reports. These are triage signals, not claims that an incident occurred.
+The detector intentionally favors explainability over opaque scoring. It reports an `elevated-errors` finding when a logical source reaches the configured number of ERROR/CRITICAL/FATAL events, a `repeated-message` finding when the same non-empty message reaches its configured threshold within a source/level scope, an `error-burst` finding when timestamped error events from one source cluster inside the configured burst window, and a `novel-message` finding when a `(source, level, message)` combination was never observed in the `--novelty-store` reference corpus. Burst timestamps are normalized to UTC before comparison, including explicit offsets; offset-less timestamps are treated as UTC consistently with LogLens baseline behavior. `--baseline-diff` adds `baseline-drift` and `baseline-new-window` findings that compare error rates against a saved reference report. Findings include rule name, severity, score, explanation, and observed count in machine-readable reports. These are triage signals, not claims that an incident occurred.
 
 ## Defensive Scope
 
@@ -131,7 +161,7 @@ Release history and notable changes are maintained in [CHANGELOG.md](CHANGELOG.m
 
 ## Design notes
 
-Parsing is deliberately deterministic and dependency-light. Malformed records do not become executable content, and unknown structured fields are retained rather than silently discarded. Strict JSON and RFC 5424 modes report malformed records while automatic mode remains conservative about input contracts. Filtering is read-only and explicit; aggregation and detection operate only on normalized events selected by the analyst. Detection rules use visible thresholds and a documented scoring formula so findings are reproducible and easy to audit. Machine-readable reports record effective configuration and finding scores. Time-window aggregation is descriptive, UTC-normalized, and excludes untimestamped records without discarding them from other analysis. Report serialization is kept separate from analysis and preserves configuration and baseline context across reusable JSON and CSV formats.
+Parsing is deliberately deterministic and dependency-light. Malformed records do not become executable content, and unknown structured fields are retained rather than silently discarded. Strict JSON and RFC 5424 modes report malformed records while automatic mode remains conservative about input contracts. Filtering is read-only and explicit; aggregation and detection operate only on normalized events selected by the analyst. Detection rules use visible thresholds and a documented scoring formula so findings are reproducible and easy to audit. Machine-readable reports record effective configuration and finding scores. Time-window aggregation is descriptive, UTC-normalized, and excludes untimestamped records without discarding them from other analysis. The analysis pipeline streams parse→filter→detect without materializing the event list, and diagnostics go through the `logging` module on stderr so reports on stdout stay machine-readable. Report serialization is kept separate from analysis and preserves configuration and baseline context across reusable JSON and CSV formats.
 
 ## Development
 

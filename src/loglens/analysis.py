@@ -110,6 +110,57 @@ class SourceSummary:
         }
 
 
+class EventFilter:
+    """Precompiled level/message/source predicate for streaming event matching.
+
+    Normalizes the filter criteria once so each event can be tested without
+    re-normalizing the query terms; matching semantics are identical to
+    :func:`filter_events`.
+    """
+
+    def __init__(
+        self,
+        *,
+        levels: set[str] | None = None,
+        contains: str | None = None,
+        sources: set[str] | None = None,
+    ) -> None:
+        self.levels = {_filter_level_key(level) for level in levels} if levels else None
+        self.sources = {_filter_source_key(source) for source in sources} if sources else None
+        self.contains = _filter_message_key(contains) if contains else None
+
+    def matches(self, event: LogEvent) -> bool:
+        if self.levels is not None and _filter_level_key(event.level) not in self.levels:
+            return False
+        if self.contains is not None and self.contains not in _filter_message_key(event.message):
+            return False
+        if self.sources is not None and _filter_source_key(event.source) not in self.sources:
+            return False
+        return True
+
+
+def iter_matching(
+    events: Iterable[LogEvent],
+    *,
+    levels: set[str] | None = None,
+    contains: str | None = None,
+    sources: set[str] | None = None,
+) -> Iterable[LogEvent]:
+    """Yield events matching the optional filters without materializing a list.
+
+    Level matching is case-insensitive after Unicode compatibility normalization
+    and whitespace trimming. Message matching is case-insensitive after Unicode
+    compatibility normalization; invisible format controls are ignored while
+    structural controls remain separators. Source matching is case-insensitive
+    after Unicode compatibility normalization; invisible format controls are
+    removed while structural controls remain whitespace boundaries.
+    """
+    predicate = EventFilter(levels=levels, contains=contains, sources=sources)
+    for event in events:
+        if predicate.matches(event):
+            yield event
+
+
 def filter_events(
     events: Iterable[LogEvent],
     *,
@@ -128,19 +179,7 @@ def filter_events(
     without a logical source can be selected explicitly with ``<unknown>`` so
     incomplete telemetry remains queryable.
     """
-    normalized_levels = {_filter_level_key(level) for level in levels} if levels else None
-    normalized_sources = {_filter_source_key(source) for source in sources} if sources else None
-    needle = _filter_message_key(contains) if contains else None
-    matched: list[LogEvent] = []
-    for event in events:
-        if normalized_levels is not None and _filter_level_key(event.level) not in normalized_levels:
-            continue
-        if needle is not None and needle not in _filter_message_key(event.message):
-            continue
-        if normalized_sources is not None and _filter_source_key(event.source) not in normalized_sources:
-            continue
-        matched.append(event)
-    return matched
+    return list(iter_matching(events, levels=levels, contains=contains, sources=sources))
 
 
 def summarize(events: Iterable[LogEvent]) -> AnalysisSummary:
