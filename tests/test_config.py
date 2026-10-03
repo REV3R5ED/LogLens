@@ -122,12 +122,14 @@ def test_invalid_json_is_rejected(tmp_path):
         load_policies(path)
 
 
+@_TOML_ONLY
 def test_missing_policy_table_is_rejected(tmp_path):
     path = _write(tmp_path, "loglens.toml", 'title = "no policies here"')
     with pytest.raises(ConfigError, match="at least one"):
         load_policies(path)
 
 
+@_TOML_ONLY
 def test_unknown_settings_are_rejected(tmp_path):
     path = _write(tmp_path, "loglens.toml", """
 [policy.default]
@@ -138,12 +140,14 @@ error_treshold = 10
 
 
 @pytest.mark.parametrize("body", ["error_threshold = 0", "repeat_threshold = 1", "burst_window_seconds = -5"])
+@_TOML_ONLY
 def test_out_of_range_thresholds_are_rejected(tmp_path, body):
     path = _write(tmp_path, "loglens.toml", f"[policy.default]\n{body}\n")
     with pytest.raises(ConfigError, match="must be an integer"):
         load_policies(path)
 
 
+@_TOML_ONLY
 def test_invalid_scoring_values_are_rejected(tmp_path):
     path = _write(tmp_path, "loglens.toml", """
 [policy.default.scoring]
@@ -154,6 +158,7 @@ high_cutoff = 70
         load_policies(path)
 
 
+@_TOML_ONLY
 def test_blank_source_override_names_are_rejected(tmp_path):
     path = _write(tmp_path, "loglens.toml", """
 [policy.default.sources."   "]
